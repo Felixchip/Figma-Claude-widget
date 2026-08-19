@@ -1,0 +1,14 @@
+{
+  "name": "Claude Widget",
+  "id": "figma-claude-widget",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "editorType": ["figma", "figjam"],
+  "networkAccess": {
+    "allowedDomains": ["https://api.anthropic.com"],
+    "reasoning": "Fetch Claude responses from the Anthropic API."
+  },
+  "documentAccess": "dynamic-page"
+}
