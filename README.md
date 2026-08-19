@@ -65,5 +65,5 @@ Available tools:
 
 ## Notes
 
-- Specs are stored in-memory on the server, so they reset on redeploy. Add a database (e.g. Railway Postgres) if you need persistence.
-- The widget's API key and spec contents are stored as widget synced state in the Figma document.
+- The server uses Postgres for persistence. On Railway, create a **Postgres** plugin (or set a `DATABASE_URL` env var) and the server will automatically create and use the `specs` table. Without `DATABASE_URL`, it falls back to an in-memory store that resets on redeploy.
+- The widget's spec contents are stored as widget synced state in the Figma document.

@@ -5,22 +5,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { createStore, Spec, type SpecStore } from "./store.js";
 
-export type Spec = {
-  id: string;
-  nodeId: string;
-  purpose: string;
-  actions: string;
-  states: string;
-  rules: string;
-  data: string;
-  navigation: string;
-  acceptance: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-const specs = new Map<string, Spec>();
+const store: SpecStore = createStore();
 
 const specInputSchema = z.object({
   nodeId: z.string().default(""),
@@ -43,14 +30,10 @@ mcpServer.registerTool(
   {
     description:
       "List the product specs that have been published from the Figma widget. Returns each spec's id, nodeId and the time it was last updated.",
-    inputSchema: { },
+    inputSchema: {},
   },
   async () => {
-    const rows = [...specs.values()].map((s) => ({
-      id: s.id,
-      nodeId: s.nodeId,
-      updatedAt: s.updatedAt,
-    }));
+    const rows = await store.list();
     return {
       content: [{ type: "text" as const, text: JSON.stringify(rows, null, 2) }],
     };
@@ -65,7 +48,7 @@ mcpServer.registerTool(
     inputSchema: { id: z.string().describe("The spec id returned by list_specs.") },
   },
   async ({ id }) => {
-    const spec = specs.get(id);
+    const spec = await store.get(id);
     if (!spec) {
       return { content: [{ type: "text" as const, text: `No spec found with id "${id}".` }], isError: true };
     }
@@ -108,11 +91,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, specs: specs.size });
+app.get("/health", async (_req, res) => {
+  const rows = await store.list();
+  res.json({ ok: true, specs: rows.length });
 });
 
-app.post("/api/specs", (req, res) => {
+app.post("/api/specs", async (req, res) => {
   const parsed = specInputSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
@@ -125,16 +109,17 @@ app.post("/api/specs", (req, res) => {
     createdAt: now,
     updatedAt: now,
   };
-  specs.set(spec.id, spec);
+  await store.create(spec);
   res.status(201).json({ id: spec.id });
 });
 
-app.get("/api/specs", (_req, res) => {
-  res.json([...specs.values()]);
+app.get("/api/specs", async (_req, res) => {
+  const rows = await store.list();
+  res.json(rows);
 });
 
-app.get("/api/specs/:id", (req, res) => {
-  const spec = specs.get(req.params.id);
+app.get("/api/specs/:id", async (req, res) => {
+  const spec = await store.get(req.params.id);
   if (!spec) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -201,7 +186,15 @@ app.delete("/mcp", async (req, res) => {
   res.status(200).json({ ok: true });
 });
 
-const port = Number(process.env.PORT) || 8080;
-app.listen(port, "0.0.0.0", () => {
-  console.log(`MCP server listening on :${port}`);
+async function main() {
+  await store.init();
+  const port = Number(process.env.PORT) || 8080;
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`MCP server listening on :${port}`);
+  });
+}
+
+main().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
