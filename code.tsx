@@ -1,125 +1,167 @@
 const { widget } = figma;
-const { Text, Frame, AutoLayout, Rectangle, Span, Ellipse, Input, useSyncedState, useEffect, usePropertyMenu, waitForTask } = widget;
+const {
+  Text,
+  Frame,
+  AutoLayout,
+  Rectangle,
+  Span,
+  Ellipse,
+  Input,
+  useSyncedState,
+  useEffect,
+  usePropertyMenu,
+  useWidgetNodeId,
+  waitForTask,
+} = widget;
 
-const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+type SpecField = {
+  key: string;
+  label: string;
+  placeholder: string;
+};
 
-type Message = { role: "user" | "assistant"; content: string };
+const FIELDS: SpecField[] = [
+  { key: "purpose", label: "Purpose", placeholder: "What is this interface for?" },
+  { key: "actions", label: "Actions / Interactions", placeholder: "What can the user do?" },
+  { key: "states", label: "States", placeholder: "Empty, loading, error, hover, etc." },
+  { key: "rules", label: "Rules", placeholder: "Validation, logic, constraints." },
+  { key: "data", label: "Data requirements", placeholder: "Fields, sources, formats." },
+  { key: "navigation", label: "Navigation", placeholder: "How users move through it." },
+  { key: "acceptance", label: "Acceptance criteria", placeholder: "Definition of done." },
+];
+
+type Spec = { nodeId: string } & { [key: string]: string };
 
 function Widget() {
-  const [messages, setMessages] = useSyncedState<Message[]>("messages", []);
-  const [draft, setDraft] = useSyncedState<string>("draft", "");
-  const [apiKey, setApiKey] = useSyncedState<string>("apiKey", "");
-  const [loading, setLoading] = useSyncedState<boolean>("loading", false);
+  const [nodeId, setNodeId] = useSyncedState<string>("nodeId", "");
+  const [values, setValues] = useSyncedState<{ [key: string]: string }>("values", {});
+  const [serverUrl, setServerUrl] = useSyncedState<string>("serverUrl", "");
+  const [status, setStatus] = useSyncedState<string>("status", "");
+  const [publishing, setPublishing] = useSyncedState<boolean>("publishing", false);
+  const widgetId = useWidgetNodeId();
 
-  usePropertyMenu(
-    [
-      {
-        itemType: "action",
-        tooltip: "Clear conversation",
-        propertyName: "clear",
-      },
-    ],
-    ({ propertyName }) => {
-      if (propertyName === "clear") setMessages([]);
+  useEffect(() => {
+    if (!nodeId) {
+      waitForTask(
+        figma.getNodeByIdAsync(widgetId).then((widgetNode) => {
+          if (widgetNode && widgetNode.parent) {
+            const parent = widgetNode.parent;
+            if (parent.type !== "PAGE") setNodeId(parent.id);
+          }
+        })
+      );
     }
-  );
+  });
 
-  async function ask(text: string) {
-    if (!apiKey) {
-      figma.notify("Paste your Anthropic API key in the widget field first.");
+  const setValue = (key: string) => (v: string) => setValues({ ...values, [key]: v });
+
+  const buildSpec = (): Spec => {
+    const spec: Spec = { nodeId };
+    for (const f of FIELDS) spec[f.key] = values[f.key] ?? "";
+    return spec;
+  };
+
+  const publish = () => {
+    if (!serverUrl.trim()) {
+      setStatus("Set the server URL first.");
       return;
     }
-    const next: Message[] = [...messages, { role: "user", content: text }];
-    setMessages(next);
-    setLoading(true);
-    try {
-      const res = await fetch(ANTHROPIC_API, {
+    setPublishing(true);
+    setStatus("Publishing…");
+    const base = serverUrl.trim().replace(/\/+$/, "");
+    waitForTask(
+      fetch(`${base}/api/specs`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 1024,
-          messages: next.map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const reply: string = data.content
-        .filter((b: { type: string }) => b.type === "text")
-        .map((b: { text: string }) => b.text)
-        .join("");
-      setMessages([...next, { role: "assistant", content: reply }]);
-    } catch (err) {
-      figma.notify(`Claude request failed: ${(err as Error).message}`);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const send = () => {
-    if (draft.trim()) {
-      const text = draft.trim();
-      setDraft("");
-      waitForTask(ask(text));
-    }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildSpec()),
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          setStatus(`Published — spec ${data.id}`);
+        })
+        .catch((err: Error) => setStatus(`Failed: ${err.message}`))
+        .finally(() => setPublishing(false))
+    );
   };
 
   return (
-    <AutoLayout direction="vertical" spacing={12} padding={16} width={320} fill="#FFFFFF" cornerRadius={8} stroke="#E5E5E5">
+    <AutoLayout
+      direction="vertical"
+      spacing={10}
+      padding={16}
+      width={360}
+      fill="#FFFFFF"
+      cornerRadius={8}
+      stroke="#E5E5E5"
+    >
       <Text fontSize={16} fontWeight={700} fill="#1E1E1E">
-        Claude Chat
+        Product Spec
       </Text>
-      <AutoLayout direction="vertical" spacing={8} width="fill-parent">
-        {messages.length === 0 && (
-          <Text fontSize={12} fill="#8A8A8A">
-            Ask a question to get started.
-          </Text>
-        )}
-        {messages.map((m, i) => (
-          <AutoLayout key={i} direction="vertical" spacing={4} width="fill-parent">
-            <Text fontSize={11} fontWeight={700} fill={m.role === "user" ? "#D97757" : "#4A5568"}>
-              {m.role === "user" ? "You" : "Claude"}
-            </Text>
-            <Text fontSize={12} fill="#1E1E1E">
-              {m.content}
-            </Text>
-          </AutoLayout>
-        ))}
-        {loading && (
-          <Text fontSize={12} fill="#8A8A8A">
-            Claude is thinking…
-          </Text>
-        )}
-      </AutoLayout>
-      <AutoLayout direction="horizontal" spacing={8} width="fill-parent" verticalAlignItems="center">
+      <Text fontSize={11} fill="#8A8A8A">
+        Fill in the spec for the attached frame/section, then publish to the MCP server.
+      </Text>
+
+      <AutoLayout direction="vertical" spacing={4} width="fill-parent">
+        <Text fontSize={11} fontWeight={700} fill="#4A5568">
+          Node ID
+        </Text>
         <Input
-          value={draft}
-          onTextEditEnd={(v) => {
-            setDraft(v.characters);
-            send();
-          }}
-          placeholder="Message Claude…"
-          fontSize={13}
+          value={nodeId}
+          onTextEditEnd={(e) => setNodeId(e.characters)}
+          placeholder="Auto-detected from attached node…"
+          fontSize={12}
           fill="#1E1E1E"
           width="fill-parent"
         />
-        <Text fontSize={13} fontWeight={700} fill="#D97757" onClick={send}>
-          Send
-        </Text>
       </AutoLayout>
-      <Input
-        value={apiKey}
-        onTextEditEnd={(v) => setApiKey(v.characters)}
-        placeholder="Anthropic API key…"
-        fontSize={11}
-        fill="#8A8A8A"
-        width="fill-parent"
-      />
+
+      {FIELDS.map((f) => (
+        <AutoLayout key={f.key} direction="vertical" spacing={4} width="fill-parent">
+          <Text fontSize={11} fontWeight={700} fill="#4A5568">
+            {f.label}
+          </Text>
+          <Input
+            value={values[f.key] ?? ""}
+            onTextEditEnd={(e) => setValue(f.key)(e.characters)}
+            placeholder={f.placeholder}
+            inputBehavior="multiline"
+            fontSize={12}
+            fill="#1E1E1E"
+            width="fill-parent"
+          />
+        </AutoLayout>
+      ))}
+
+      <AutoLayout direction="vertical" spacing={4} width="fill-parent">
+        <Text fontSize={11} fontWeight={700} fill="#4A5568">
+          MCP Server URL
+        </Text>
+        <Input
+          value={serverUrl}
+          onTextEditEnd={(e) => setServerUrl(e.characters)}
+          placeholder="https://your-app.up.railway.app"
+          fontSize={12}
+          fill="#1E1E1E"
+          width="fill-parent"
+        />
+      </AutoLayout>
+
+      <AutoLayout direction="horizontal" spacing={8} width="fill-parent" verticalAlignItems="center">
+        <Text
+          fontSize={13}
+          fontWeight={700}
+          fill={publishing ? "#B0B0B0" : "#D97757"}
+          onClick={publishing ? undefined : publish}
+        >
+          {publishing ? "Publishing…" : "Publish"}
+        </Text>
+        {status && (
+          <Text fontSize={11} fill="#4A5568">
+            {status}
+          </Text>
+        )}
+      </AutoLayout>
     </AutoLayout>
   );
 }

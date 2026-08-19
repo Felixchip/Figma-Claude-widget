@@ -1,14 +1,16 @@
 {
-  "name": "Claude Widget",
+  "name": "Product Spec Widget",
   "id": "figma-claude-widget",
   "api": "1.0.0",
+  "widgetApi": "1.0.0",
   "main": "dist/code.js",
+  "containsWidget": true,
   "capabilities": [],
   "enableProposedApi": false,
   "editorType": ["figma", "figjam"],
   "networkAccess": {
-    "allowedDomains": ["https://api.anthropic.com"],
-    "reasoning": "Fetch Claude responses from the Anthropic API."
+    "allowedDomains": ["*"],
+    "reasoning": "Publishes product specs to a user-configured MCP server hosted on Railway."
   },
   "documentAccess": "dynamic-page"
 }
