@@ -25,7 +25,8 @@ A Figma/FigJam widget that captures a **product spec** for a design (frame/secti
 ```
 ├── code.tsx          # Figma widget source (spec form)
 ├── manifest.json     # Widget manifest
-├── railway.json      # Railway deploy config (points at server/)
+├── Dockerfile        # Builds/runs the MCP server
+├── railway.json      # Railway deploy config
 └── server/
     ├── src/index.ts  # MCP server + REST publish endpoint
     └── package.json
@@ -44,7 +45,7 @@ In the widget, set the **MCP Server URL** field to your Railway app URL (e.g. `h
 
 ## 2. Server (Railway)
 
-1. Create a Railway project and deploy this repo (`railway.json` targets the `server/` directory).
+1. Create a Railway project and deploy this repo. The `Dockerfile` builds and runs the MCP server in `server/` (no dashboard root-directory setting needed).
 2. The server exposes:
    - `POST /api/specs` — where the widget publishes specs
    - `GET /health` — health check
