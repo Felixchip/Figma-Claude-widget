@@ -65,5 +65,6 @@ Available tools:
 
 ## Notes
 
-- The server uses Postgres for persistence. On Railway, create a **Postgres** plugin (or set a `DATABASE_URL` env var) and the server will automatically create and use the `specs` table. Without `DATABASE_URL`, it falls back to an in-memory store that resets on redeploy.
+- The server uses Postgres for persistence. On Railway, create a **Postgres** plugin (or set a `DATABASE_URL` env var) and the server will automatically create and use the `specs` table. If your Postgres requires SSL, set the `PGSSL=true` env var. Without `DATABASE_URL`, it falls back to an in-memory store that resets on redeploy.
+- The server listens before the database is ready and retries the DB connection in the background, so the healthcheck (`/health`) passes even while Postgres is still warming up.
 - The widget's spec contents are stored as widget synced state in the Figma document.

@@ -19,6 +19,7 @@ export type Spec = {
 export type SpecRow = Pick<Spec, "id" | "nodeId" | "updatedAt">;
 
 export interface SpecStore {
+  ready: boolean;
   init(): Promise<void>;
   list(): Promise<SpecRow[]>;
   get(id: string): Promise<Spec | undefined>;
@@ -43,9 +44,14 @@ function toSpec(row: any): Spec {
 
 class PostgresStore implements SpecStore {
   private pool: pg.Pool;
+  ready = false;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString });
+    const ssl = process.env.PGSSL === "true";
+    this.pool = new Pool({
+      connectionString,
+      ...(ssl ? { ssl: { rejectUnauthorized: false } } : {}),
+    });
   }
 
   async init(): Promise<void> {
@@ -64,6 +70,7 @@ class PostgresStore implements SpecStore {
         updated_at TIMESTAMPTZ NOT NULL
       )
     `);
+    this.ready = true;
   }
 
   async list(): Promise<SpecRow[]> {
@@ -108,6 +115,7 @@ class PostgresStore implements SpecStore {
 
 class MemoryStore implements SpecStore {
   private specs = new Map<string, Spec>();
+  ready = true;
 
   async init(): Promise<void> {}
 

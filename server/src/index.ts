@@ -91,9 +91,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", async (_req, res) => {
-  const rows = await store.list();
-  res.json({ ok: true, specs: rows.length });
+app.get("/health", (_req, res) => {
+  res.json({ ok: true, specs: store.ready ? null : "initializing" });
 });
 
 app.post("/api/specs", async (req, res) => {
@@ -187,14 +186,26 @@ app.delete("/mcp", async (req, res) => {
 });
 
 async function main() {
-  await store.init();
   const port = Number(process.env.PORT) || 8080;
   app.listen(port, "0.0.0.0", () => {
     console.log(`MCP server listening on :${port}`);
   });
+  initStoreWithRetry();
 }
 
-main().catch((err) => {
-  console.error("Failed to start server:", err);
-  process.exit(1);
-});
+async function initStoreWithRetry(attempt = 1) {
+  try {
+    await store.init();
+    console.log("Store ready");
+  } catch (err) {
+    console.error(`Store init failed (attempt ${attempt}):`, err);
+    if (attempt < 10) {
+      const delay = Math.min(1000 * 2 ** attempt, 30000);
+      setTimeout(() => initStoreWithRetry(attempt + 1), delay);
+    } else {
+      console.error("Giving up on store init; API will fail until restarted.");
+    }
+  }
+}
+
+main();
