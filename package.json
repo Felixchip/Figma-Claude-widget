@@ -1,9 +1,12 @@
 {
   "name": "figma-claude-widget",
   "version": "0.1.0",
-  "description": "A Figma/FigJam widget that chats with Claude.",
+  "description": "A Figma/FigJam widget that captures product specs and publishes them to an MCP server.",
+  "private": true,
+  "workspaces": ["server"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && npm run build -w server",
+    "start": "node server/dist/index.js",
     "watch": "tsc -p tsconfig.json --watch"
   },
   "devDependencies": {
