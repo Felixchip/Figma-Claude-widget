@@ -1,5 +1,5 @@
 node_modules/
 dist/
-server/dist/
-server/node_modules/
+widget/node_modules/
+widget/dist/
 *.log

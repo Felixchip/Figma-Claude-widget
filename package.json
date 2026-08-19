@@ -1,17 +1,25 @@
 {
-  "name": "figma-claude-widget",
+  "name": "figma-claude-widget-server",
   "version": "0.1.0",
-  "description": "A Figma/FigJam widget that captures product specs and publishes them to an MCP server.",
-  "private": true,
-  "workspaces": ["server"],
+  "description": "MCP server that stores Figma product specs published by the Figma widget and exposes them to coding agents.",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && npm run build -w server",
-    "start": "node server/dist/index.js",
-    "watch": "tsc -p tsconfig.json --watch"
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "^1.71.0",
-    "@figma/widget-typings": "^1.13.0",
-    "typescript": "^5.3.0"
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.6",
+    "typescript": "^5.5.0"
   }
 }
