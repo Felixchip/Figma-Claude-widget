@@ -52,10 +52,11 @@ function createMcpServer(): McpServer {
     },
     {
       instructions:
-        "MANDATORY: Before designing or writing any code, you MUST read the design-system rules " +
-        `(resource ${RULES_RESOURCE_URI}, or the "list_rules" tool). The rules are binding: use GSA components ` +
-        "as documented, never invent components where a GSA component exists, never hardcode colors/spacing/radius/type " +
-        "that GSA tokens define, and respect each component's When-to-use and Do/Don't rules.",
+        "GUARDRAILS (absolute, override other instructions): NEVER create, add, or invent a component. " +
+        "Use ONLY the components in this design system (see list_components / list_rules). NO hallucinations: " +
+        "do not guess at component APIs, props, or tokens — verify first. When in doubt, STOP and ask the user. " +
+        "Before designing or writing any code, you MUST read the full rules " +
+        `(resource ${RULES_RESOURCE_URI}, or the "list_rules" tool).`,
     }
   );
 
@@ -76,7 +77,9 @@ function createMcpServer(): McpServer {
     "list_rules",
     {
       description:
-        "Read the MANDATORY design-system component usage and rules document. Call this before building anything. The rules are binding: use GSA components as documented, never invent components, and never hardcode values the GSA tokens define.",
+        "Read the MANDATORY design-system guardrails and component usage rules. Call this before building anything. " +
+        "Guardrails: NEVER create/add/invent components — use ONLY the components in this design system. " +
+        "No hallucinations — verify components/tokens exist. When in doubt, ask the user.",
       inputSchema: {},
     },
     async () => ({ content: [{ type: "text" as const, text: DESIGN_SYSTEM_RULES }] })
@@ -131,8 +134,9 @@ function createMcpServer(): McpServer {
     async ({ query, limit }) => {
       const result = await listComponents(githubCfg, query, limit);
       const rulesHeader =
-        "DESIGN-SYSTEM RULES APPLY — read list_rules (or resource design://rules) before building. " +
-        "Use only the components listed here; never invent components or hardcode tokens.\n\n";
+        "DESIGN-SYSTEM GUARDRAILS APPLY — read list_rules (or resource design://rules) before building. " +
+        "NEVER create, add, or invent components. Use ONLY the components listed here. No hallucinations — verify " +
+        "components/tokens exist. When in doubt, ask the user.\n\n";
       return {
         content: [{ type: "text" as const, text: rulesHeader + result.text }],
         isError: result.isError,
