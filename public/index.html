@@ -78,10 +78,10 @@
         <p class="pill">Hosted by Figma</p><p class="pill">OAuth with your Figma account</p><p class="pill">get_design_context</p><p class="pill">get_variable_defs</p>
       </div>
       <div class="card">
-        <h3>GitHub Components MCP (this server)</h3>
+        <h3>Design System MCP (this server)</h3>
         <p id="repo-label">Repo: <em>not configured</em></p>
-        <p>Reads your code components repo so agents reuse real components, props, and styles instead of inventing them.</p>
-        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p>
+        <p>One MCP endpoint for everything: your product specs and your code components repo — so agents reuse real components, props, and styles instead of inventing them.</p>
+        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p><p class="pill">list_specs</p><p class="pill">get_spec</p>
       </div>
     </div>
   </section>
@@ -93,14 +93,14 @@
     <div class="card">
       <h3>Claude Code</h3>
       <pre><code>claude mcp add --transport http figma https://mcp.figma.com/mcp
-claude mcp add --transport http github-components <span class="mcp-url">/mcp</span></code></pre>
+claude mcp add --transport http design-system <span class="mcp-url">/mcp</span></code></pre>
     </div>
     <div class="card">
       <h3>Cursor</h3>
       <pre><code>{
   "mcpServers": {
     "figma":          { "url": "https://mcp.figma.com/mcp" },
-    "github-components": { "url": "<span class="mcp-url">/mcp</span>" }
+    "design-system":  { "url": "<span class="mcp-url">/mcp</span>" }
   }
 }</code></pre>
     </div>
@@ -113,7 +113,8 @@ claude mcp add --transport http github-components <span class="mcp-url">/mcp</sp
     <div class="card">
       <h3>Recommended prompt</h3>
       <pre><code>Use the Figma MCP (get_design_context + get_variable_defs) to read the design,
-and the github-components MCP to pick components from our repo.
+and the design-system MCP (list_components, get_component, list_specs, get_spec)
+to pick components and read product specs from our repo.
 Build the UI reusing our components and design tokens. Stay on-brand.</code></pre>
     </div>
   </section>
@@ -225,12 +226,12 @@ IDEA: ${idea || "(your idea here)"}
 
 WORKFLOW:
 1. Read the design system with the Figma MCP (get_design_context, get_variable_defs) for the relevant file.
-2. Inspect our components repo with the github-components MCP (list_components, get_component, get_repo_structure).
+2. Inspect our components repo with the design-system MCP (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
 3. Plan the UI using ONLY components and tokens that exist in our system.
 4. Identify gaps: any component we need to add.
 5. Output: (a) a component map, (b) the screens/flows, (c) what to build new, (d) rough implementation steps for an agent.
 
-Connect both MCP servers (figma, github-components) before running this.`;
+Connect both MCP servers (figma, design-system) before running this.`;
   const out = document.getElementById("prompt-out");
   out.textContent = prompt;
   out.classList.remove("hidden");

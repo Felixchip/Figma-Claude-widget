@@ -1,7 +1,7 @@
 {
-  "name": "figma-claude-widget-server",
-  "version": "0.1.0",
-  "description": "MCP server that stores Figma product specs published by the Figma widget and exposes them to coding agents.",
+  "name": "design-system-mcp",
+  "version": "0.2.0",
+  "description": "Unified MCP server + web UI: reads Figma product specs and the GitHub components repo so agents build on-brand interfaces.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

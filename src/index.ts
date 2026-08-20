@@ -1,13 +1,29 @@
 import express from "express";
 import cors from "cors";
 import { randomUUID } from "crypto";
+import path from "path";
+import { fileURLToPath } from "url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { createStore, Spec, type SpecStore } from "./store.js";
+import { createStore, type Spec, type SpecStore } from "./store.js";
+import { configReady, loadConfig, type GitHubConfig } from "./github.js";
+import {
+  getRepoOverview,
+  listComponents,
+  getComponent,
+  getRepoStructure,
+  searchComponents,
+  TOOL_DEFS as GITHUB_TOOL_DEFS,
+  runTool,
+} from "./tools.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
 const store: SpecStore = createStore();
+const githubCfg: GitHubConfig = loadConfig();
 
 const specInputSchema = z.object({
   nodeId: z.string().default(""),
@@ -20,41 +36,94 @@ const specInputSchema = z.object({
   acceptance: z.string().default(""),
 });
 
-const mcpServer = new McpServer({
-  name: "figma-product-specs",
-  version: "0.1.0",
-});
+function toContent(result: { text: string; isError?: boolean }) {
+  return {
+    content: [{ type: "text" as const, text: result.text }],
+    isError: result.isError,
+  };
+}
 
-mcpServer.registerTool(
-  "list_specs",
-  {
-    description:
-      "List the product specs that have been published from the Figma widget. Returns each spec's id, nodeId and the time it was last updated.",
-    inputSchema: {},
-  },
-  async () => {
-    const rows = await store.list();
-    return {
-      content: [{ type: "text" as const, text: JSON.stringify(rows, null, 2) }],
-    };
-  }
-);
+function createMcpServer(): McpServer {
+  const server = new McpServer({
+    name: "design-system-mcp",
+    version: "0.2.0",
+  });
 
-mcpServer.registerTool(
-  "get_spec",
-  {
-    description:
-      "Get the full product spec for the given id, published from the Figma widget. Use this to understand exactly what the interface must do before writing code.",
-    inputSchema: { id: z.string().describe("The spec id returned by list_specs.") },
-  },
-  async ({ id }) => {
-    const spec = await store.get(id);
-    if (!spec) {
-      return { content: [{ type: "text" as const, text: `No spec found with id "${id}".` }], isError: true };
+  // --- Specs tools ---------------------------------------------------------
+  server.registerTool(
+    "list_specs",
+    {
+      description:
+        "List the product specs that have been published from the Figma widget. Returns each spec's id, nodeId and the time it was last updated.",
+      inputSchema: {},
+    },
+    async () => {
+      const rows = await store.list();
+      return { content: [{ type: "text" as const, text: JSON.stringify(rows, null, 2) }] };
     }
-    return { content: [{ type: "text" as const, text: formatSpec(spec) }] };
-  }
-);
+  );
+
+  server.registerTool(
+    "get_spec",
+    {
+      description:
+        "Get the full product spec for the given id, published from the Figma widget. Use this to understand exactly what the interface must do before writing code.",
+      inputSchema: { id: z.string().describe("The spec id returned by list_specs.") },
+    },
+    async ({ id }) => {
+      const spec = await store.get(id);
+      if (!spec) {
+        return { content: [{ type: "text" as const, text: `No spec found with id "${id}".` }], isError: true };
+      }
+      return { content: [{ type: "text" as const, text: formatSpec(spec) }] };
+    }
+  );
+
+  // --- GitHub components tools ---------------------------------------------
+  server.registerTool(
+    "get_repo_overview",
+    { description: GITHUB_TOOL_DEFS.get_repo_overview.description, inputSchema: {} },
+    async () => toContent(await getRepoOverview(githubCfg))
+  );
+
+  server.registerTool(
+    "list_components",
+    {
+      description: GITHUB_TOOL_DEFS.list_components.description,
+      inputSchema: {
+        query: z.string().optional().describe("Optional substring to filter component names/paths by."),
+        limit: z.number().min(1).max(200).optional().describe("Max results (default 100)."),
+      },
+    },
+    async ({ query, limit }) => toContent(await listComponents(githubCfg, query, limit))
+  );
+
+  server.registerTool(
+    "get_component",
+    {
+      description: GITHUB_TOOL_DEFS.get_component.description,
+      inputSchema: { path: z.string().describe("File path in the repo, e.g. 'src/components/Button.tsx'.") },
+    },
+    async ({ path }) => toContent(await getComponent(githubCfg, path))
+  );
+
+  server.registerTool(
+    "get_repo_structure",
+    { description: GITHUB_TOOL_DEFS.get_repo_structure.description, inputSchema: {} },
+    async () => toContent(await getRepoStructure(githubCfg))
+  );
+
+  server.registerTool(
+    "search_components",
+    {
+      description: GITHUB_TOOL_DEFS.search_components.description,
+      inputSchema: { query: z.string().describe("Keyword to search component names and paths for.") },
+    },
+    async ({ query }) => toContent(await searchComponents(githubCfg, query))
+  );
+
+  return server;
+}
 
 function formatSpec(spec: Spec): string {
   return [
@@ -87,13 +156,28 @@ function formatSpec(spec: Spec): string {
   ].join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// HTTP app: REST + MCP + web UI
+// ---------------------------------------------------------------------------
+
 const app = express();
-app.use(cors());
+app.use(cors({ exposedHeaders: ["Mcp-Session-Id"] }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, specs: store.ready ? null : "initializing" });
+  res.json({ ok: true, specs: store.ready ? null : "initializing", github: configReady(githubCfg) });
 });
+
+app.get("/api/status", (_req, res) => {
+  res.json({
+    configured: configReady(githubCfg),
+    repo: githubCfg.owner && githubCfg.repo ? `${githubCfg.owner}/${githubCfg.repo}` : null,
+    githubTools: Object.keys(GITHUB_TOOL_DEFS),
+    specTools: ["list_specs", "get_spec"],
+  });
+});
+
+// --- Specs REST ------------------------------------------------------------
 
 app.post("/api/specs", async (req, res) => {
   const parsed = specInputSchema.safeParse(req.body);
@@ -126,6 +210,46 @@ app.get("/api/specs/:id", async (req, res) => {
   res.json(spec);
 });
 
+// --- Playground: call any MCP tool via REST ---------------------------------
+
+app.post("/api/tools/:name", async (req, res) => {
+  const name = req.params.name;
+  const args = req.body ?? {};
+
+  if (name === "list_specs" || name === "get_spec") {
+    try {
+      const specList = await store.list();
+      if (name === "list_specs") {
+        res.json({ result: JSON.stringify(specList, null, 2), isError: false });
+        return;
+      }
+      const spec = await store.get(args?.id ?? "");
+      if (!spec) {
+        res.json({ result: `No spec found with id "${args?.id}".`, isError: true });
+        return;
+      }
+      res.json({ result: formatSpec(spec), isError: false });
+      return;
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+      return;
+    }
+  }
+
+  if (!(name in GITHUB_TOOL_DEFS)) {
+    res.status(404).json({ error: `Unknown tool '${name}'` });
+    return;
+  }
+  try {
+    const result = await runTool(githubCfg, name, args);
+    res.json({ result: result.text, isError: result.isError ?? false });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// --- MCP (Streamable HTTP) --------------------------------------------------
+
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
 app.post("/mcp", async (req, res) => {
@@ -133,6 +257,7 @@ app.post("/mcp", async (req, res) => {
   let transport: StreamableHTTPServerTransport | undefined = sessionId ? transports.get(sessionId) : undefined;
 
   if (!transport && !sessionId && isInitializeRequest(req.body)) {
+    const server = createMcpServer();
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (id) => {
@@ -142,7 +267,7 @@ app.post("/mcp", async (req, res) => {
     transport.onclose = () => {
       if (transport!.sessionId) transports.delete(transport!.sessionId);
     };
-    await mcpServer.connect(transport);
+    await server.connect(transport);
   } else if (!transport) {
     res.status(400).json({
       jsonrpc: "2.0",
@@ -185,10 +310,16 @@ app.delete("/mcp", async (req, res) => {
   res.status(200).json({ ok: true });
 });
 
+// --- Web UI -----------------------------------------------------------------
+
+app.use(express.static(PUBLIC_DIR));
+
+// --- Boot -------------------------------------------------------------------
+
 async function main() {
   const port = Number(process.env.PORT) || 8080;
   app.listen(port, "0.0.0.0", () => {
-    console.log(`MCP server listening on :${port}`);
+    console.log(`Design system MCP server listening on :${port}`);
   });
   initStoreWithRetry();
 }

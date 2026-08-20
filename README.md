@@ -1,70 +1,91 @@
-# Figma Product Spec Widget + MCP Server
+# Design System MCP
 
-Two related but separate pieces:
+One MCP server + web UI that gives your agents (Claude, DeepSeek, ChatGPT) everything they need to design and build **on-brand** interfaces:
 
-1. **Specs MCP** (repo root) — a Figma/FigJam widget that captures a **product spec** for a design and publishes it to an MCP server agents can read.
-2. **GitHub Components MCP** (`github-mcp/`) — a separate MCP server that reads your code components repo so agents build with the right components, plus a web UI.
+- **Product specs** published from the Figma widget (`list_specs`, `get_spec`)
+- **Code components repo** on GitHub (`list_components`, `get_component`, `search_components`, `get_repo_structure`, `get_repo_overview`)
+- **Web UI** at the root: setup guides, playground, brainstorm prompt generator
 
-## Specs MCP (repo root)
+Pair it with Figma's official hosted MCP (`https://mcp.figma.com/mcp`) for design-system context from Figma.
 
-A Figma/FigJam widget that captures a **product spec** for a design (frame/section) and publishes it to an MCP server. Coding agents (Claude, DeepSeek, ChatGPT) connected to that MCP server can then read the spec — including the Figma **Node ID** — and build the interface against your existing components repo.
+## How it works
 
-## GitHub Components MCP (`github-mcp/`)
+1. In Figma, the widget captures a product spec (Purpose, Actions/Interactions, States, Rules, Data requirements, Navigation, Acceptance criteria, Node ID) and publishes it to this server.
+2. Agents connect to this MCP server — they see spec tools AND GitHub components tools in one interface.
+3. Agents also connect to Figma's official MCP for the visual design context.
+4. They design/build interfaces reusing your real components and tokens.
 
-A separate MCP server + web UI that connects your agents to the **code components repo** on GitHub:
+## One MCP endpoint, all tools
 
-- MCP endpoint: `/mcp` (Streamable HTTP)
-- Tools: `get_repo_overview`, `list_components`, `get_component`, `get_repo_structure`, `search_components`
-- Web UI at the service root: landing, setup guides (Figma MCP + this one), playground, brainstorm prompt generator
-
-Config (env vars):
-
-| Var | Purpose |
-| --- | ------- |
-| `GITHUB_REPO` | Components repo, e.g. `acme/web` |
-| `GITHUB_OWNER` / `GITHUB_REPO_NAME` | Alternative to `GITHUB_REPO` |
-| `GITHUB_TOKEN` | Token (needed for private repos) |
-| `GITHUB_BRANCH` | Branch to read (default `main`) |
-
-To deploy: create a new Railway service from this repo, set the **root directory to `github-mcp/`** (dashboard), which uses the Dockerfile in that folder. Set the env vars above.
-
-To connect your agent, add **two** MCP servers:
-- Figma (official): `https://mcp.figma.com/mcp`
-- GitHub components: `https://<your-github-mcp-url>/mcp`
-
-## Spec fields (widget)
-
-- Node ID (auto-detected from the attached node)
-- Purpose
-- Actions / Interactions
-- States
-- Rules
-- Data requirements
-- Navigation
-- Acceptance criteria
+| Tool | Source | Purpose |
+| ---- | ------ | ------- |
+| `list_specs` | specs | List published product specs |
+| `get_spec` | specs | Full spec for an id |
+| `get_repo_overview` | GitHub | Repo name, description, default branch |
+| `list_components` | GitHub | List component files |
+| `get_component` | GitHub | Full source of a component file |
+| `get_repo_structure` | GitHub | Directory structure |
+| `search_components` | GitHub | Search component names/paths |
 
 ## Repository layout
 
 ```
-├── package.json       # Specs server app (deployed on Railway)
-├── tsconfig.json
+├── package.json       # Unified server (deployed on Railway)
 ├── src/
-│   ├── index.ts       # Specs MCP server + REST publish endpoint
-│   └── store.ts       # Postgres / in-memory storage
-├── github-mcp/        # GitHub Components MCP server + web UI
-│   ├── src/
-│   │   ├── index.ts   # MCP endpoint + REST + static web UI
-│   │   ├── github.ts  # GitHub API client
-│   │   └── tools.ts   # MCP tool implementations
-│   ├── public/        # Web UI (landing/setup/playground/brainstorm)
-│   └── Dockerfile
-├── railway.json       # Railway deploy config (specs server)
+│   ├── index.ts       # MCP endpoint + REST + static web UI
+│   ├── store.ts       # Postgres / in-memory spec storage
+│   ├── github.ts      # GitHub API client
+│   └── tools.ts       # GitHub component tool implementations
+├── public/            # Web UI (overview/setup/playground/brainstorm)
+├── railway.json       # Railway deploy config
 └── widget/            # Figma widget source (spec form)
 ```
 
-## Specs MCP — widget & server
+## Deploy on Railway (one service)
 
-### 1. Widget
+1. Create a Railway project and deploy this repo. The repo root is a plain Node app, so Railway auto-detects it with Nixpacks (`npm ci` → `npm run build` → `npm start`).
+2. Add a **Postgres** plugin (sets `DATABASE_URL`) — the server auto-creates the `specs` table. Set `PGSSL=true` if connection errors appear.
+3. Set env vars for the components repo:
+
+| Var | Purpose |
+| --- | ------- |
+| `GITHUB_REPO` | Components repo, e.g. `acme/web` |
+| `GITHUB_OWNER` + `GITHUB_REPO_NAME` | Alternative to `GITHUB_REPO` |
+| `GITHUB_TOKEN` | Token (required for private repos) |
+| `GITHUB_BRANCH` | Branch to read (default `main`) |
+
+Result: `https://<your-app>.up.railway.app` — web UI at `/`, MCP at `/mcp`, healthcheck at `/health`.
+
+## Connect your agent
+
+Add **two** MCP servers so the agent sees design + code context:
+
+```json
+{
+  "mcpServers": {
+    "figma":          { "url": "https://mcp.figma.com/mcp" },
+    "design-system":  { "url": "https://<your-app>.up.railway.app/mcp" }
+  }
+}
+```
+
+Claude Code:
+
+```sh
+claude mcp add --transport http figma https://mcp.figma.com/mcp
+claude mcp add --transport http design-system https://<your-app>.up.railway.app/mcp
+```
+
+Suggested prompt:
+
+```
+Use the Figma MCP (get_design_context + get_variable_defs) to read the design,
+and the design-system MCP (list_components, get_component, list_specs, get_spec)
+to pick components and read product specs from our repo.
+Build the UI reusing our components and design tokens. Stay on-brand.
+```
+
+## Figma widget
 
 ```sh
 cd widget
@@ -72,33 +93,21 @@ npm install
 npm run build   # outputs dist/code.js
 ```
 
-In Figma: **Menu → Widgets → Development → Import widget from manifest** and pick `widget/manifest.json`.
+In Figma: **Menu → Widgets → Development → Import widget from manifest** and pick `widget/manifest.json`. Set the **MCP Server URL** field to `https://<your-app>.up.railway.app`.
 
-In the widget, set the **MCP Server URL** field to your Railway app URL (e.g. `https://your-app.up.railway.app`).
+## REST API (for the widget and playground)
 
-### 2. Server (Railway)
-
-1. Create a Railway project and deploy this repo. The repo root is a plain Node app, so Railway auto-detects it with Nixpacks (`npm ci` → `npm run build` → `npm start`).
-2. The server exposes:
-   - `POST /api/specs` — where the widget publishes specs
-   - `GET /health` — health check
-   - `POST /mcp` — the MCP (Streamable HTTP) endpoint
-
-The port comes from Railway's `PORT` env var (defaults to 8080).
-
-### 3. Connect an agent
-
-Point the agent's MCP client at `https://your-app.up.railway.app/mcp` (Streamable HTTP).
-
-Available tools:
-
-| Tool | Description |
-| ---- | ----------- |
-| `list_specs` | List published specs (id, nodeId, updatedAt) |
-| `get_spec`   | Full spec for a given id, ready to build against |
+| Endpoint | Purpose |
+| -------- | ------- |
+| `POST /api/specs` | Publish a spec (used by the widget) |
+| `GET /api/specs` | List specs |
+| `GET /api/specs/:id` | Get one spec |
+| `POST /api/tools/:name` | Call any MCP tool (used by the web playground) |
+| `GET /api/status` | Server + repo status |
+| `GET /health` | Health check |
 
 ## Notes
 
-- The server uses Postgres for persistence. On Railway, create a **Postgres** plugin (or set a `DATABASE_URL` env var) and the server will automatically create and use the `specs` table. If your Postgres requires SSL, set the `PGSSL=true` env var. Without `DATABASE_URL`, it falls back to an in-memory store that resets on redeploy.
-- The server listens before the database is ready and retries the DB connection in the background, so the healthcheck (`/health`) passes even while Postgres is still warming up.
-- The widget's spec contents are stored as widget synced state in the Figma document.
+- Specs are stored in Postgres (in-memory fallback without `DATABASE_URL`). The server listens before the DB is ready and retries in the background.
+- Each MCP client gets its own server instance, so multiple agents can connect concurrently.
+- Without a `GITHUB_TOKEN`, GitHub API calls are rate-limited (60/hour/IP for public repos).
