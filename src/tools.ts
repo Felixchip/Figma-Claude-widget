@@ -58,6 +58,13 @@ export async function listComponents(cfg: GitHubConfig, query?: string, limit?: 
       .map((f) => ({ name: componentName(f.path), path: f.path }))
       .filter((c) => !query || c.name.toLowerCase().includes(query.toLowerCase()) || c.path.toLowerCase().includes(query.toLowerCase()))
       .slice(0, limit ?? 100);
+    if (components.length === 0 && !query) {
+      const sample = files.slice(0, 40).map((f) => f.path);
+      return {
+        text: `No component files matched the current filter. Here is a sample of files found in the repo (${files.length} total):\n\n${JSON.stringify(sample, null, 2)}`,
+        isError: true,
+      };
+    }
     return { text: JSON.stringify(components, null, 2) };
   } catch (err) {
     return toolError(err);

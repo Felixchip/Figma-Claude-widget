@@ -76,13 +76,18 @@ function encodePath(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 
-const COMPONENT_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js", ".vue", ".svelte"];
+const COMPONENT_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js", ".vue", ".svelte", ".mjs", ".cjs", ".astro"];
 const COMPONENT_DIR_HINTS = ["components", "ui", "src"];
+const DESIGN_FILE_EXTENSIONS = [".json", ".md", ".mdx", ".yaml", ".yml", ".css", ".scss", ".less"];
 
 export function looksLikeComponentFile(path: string): boolean {
   const lower = path.toLowerCase();
   if (path.startsWith("node_modules/") || path.includes(".test.") || path.includes(".stories.") || path.includes(".spec.")) return false;
-  return COMPONENT_EXTENSIONS.some((ext) => lower.endsWith(ext)) && !/\.(d\.ts|config|mock|fixture)/.test(lower);
+  if (/\.(d\.ts|config|mock|fixture|lock)/.test(lower)) return false;
+  if (COMPONENT_EXTENSIONS.some((ext) => lower.endsWith(ext))) return true;
+  // Design-system files: JSON/MDX/tokens living under a components/ui/src dir
+  if (DESIGN_FILE_EXTENSIONS.some((ext) => lower.endsWith(ext)) && isComponentDir(lower)) return true;
+  return false;
 }
 
 export function isComponentDir(path: string): boolean {
