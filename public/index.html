@@ -65,6 +65,7 @@
   <span class="tag">Figma + GitHub components for your agents</span>
   <nav>
     <a href="#overview" class="active">Overview</a>
+    <a href="#settings">Settings</a>
     <a href="#playground">Playground</a>
     <a href="#brainstorm">Brainstorm</a>
   </nav>
@@ -75,21 +76,6 @@
     <h2>Design on-brand with your agents</h2>
     <p>Point ChatGPT, Claude, DeepSeek, or any MCP-capable agent at your design system. They read your Figma design tokens and your GitHub components repo, then design and build interfaces that match your brand — no more generic output.</p>
     <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
-
-    <div class="grid">
-      <div class="card">
-        <h3>Figma MCP (official)</h3>
-        <p>Design system context: components, variables, styles, layouts straight from your Figma files.</p>
-        <p><code>https://mcp.figma.com/mcp</code></p>
-        <p class="pill">Hosted by Figma</p><p class="pill">OAuth with your Figma account</p><p class="pill">get_design_context</p><p class="pill">get_variable_defs</p>
-      </div>
-      <div class="card">
-        <h3>Design System MCP (this server)</h3>
-        <p id="repo-label">Repo: <em>not configured</em></p>
-        <p>One MCP endpoint for everything: your product specs, your code components repo, and the mandatory design rules — so agents reuse real components instead of inventing them.</p>
-        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
-      </div>
-    </div>
 
     <div class="card">
       <h3>Connect your agent</h3>
@@ -118,6 +104,25 @@
 and the design-system MCP (list_rules, list_components, get_component, list_specs,
 get_spec) to follow the mandatory rules, pick components, and read product specs.
 Build the UI using ONLY the components in our design system. Stay on-brand.</code></pre>
+    </div>
+  </section>
+
+  <section id="settings" class="hidden">
+    <h2>Settings</h2>
+    <p>Your connected MCP servers.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Figma MCP (official)</h3>
+        <p>Design system context: components, variables, styles, layouts straight from your Figma files.</p>
+        <p><code>https://mcp.figma.com/mcp</code></p>
+        <p class="pill">Hosted by Figma</p><p class="pill">OAuth with your Figma account</p><p class="pill">get_design_context</p><p class="pill">get_variable_defs</p>
+      </div>
+      <div class="card">
+        <h3>Design System MCP (this server)</h3>
+        <p id="repo-label">Repo: <em>not configured</em></p>
+        <p>One MCP endpoint for everything: your product specs, your code components repo, and the mandatory design rules — so agents reuse real components instead of inventing them.</p>
+        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
+      </div>
     </div>
   </section>
 
