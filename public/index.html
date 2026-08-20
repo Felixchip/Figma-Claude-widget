@@ -55,6 +55,8 @@
   .codehead { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
   .codehead button { padding: 6px 14px; font-size: 12px; }
   .copied { color: var(--green); font-size: 12px; margin-left: 8px; }
+  footer { border-top: 1px solid var(--border); padding: 24px 32px; margin-top: 40px; text-align: center; color: var(--muted); font-size: 13px; }
+  footer .brand { color: var(--text); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -314,5 +316,6 @@ document.getElementById("btn-copy-idea").addEventListener("click", () => {
 
 checkStatus();
 </script>
+<footer>© <span class="brand">CMCMarkets</span> · Design System MCP</footer>
 </body>
 </html>
