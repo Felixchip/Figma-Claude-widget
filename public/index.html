@@ -34,13 +34,14 @@
   .status.off .dot { background: var(--red); }
   code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   code { background: var(--panel); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
-  pre { background: #0b0e14; border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 13px; margin: 12px 0; }
+  pre { background: #0b0e14; border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 13px; margin: 12px 0; white-space: pre-wrap; word-break: break-word; }
   pre code { background: none; padding: 0; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
   input, textarea, select { width: 100%; background: #0b0e14; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; }
   textarea { min-height: 120px; resize: vertical; }
+  select { cursor: pointer; }
   button { background: var(--accent); color: white; border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
   button:hover { filter: brightness(1.1); }
   button.secondary { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
@@ -51,6 +52,9 @@
   #log .err { color: var(--red); }
   .hidden { display: none; }
   .pill { display: inline-block; background: #0b0e14; border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 3px 10px; font-size: 12px; margin: 2px; }
+  .codehead { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .codehead button { padding: 6px 14px; font-size: 12px; }
+  .copied { color: var(--green); font-size: 12px; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -59,7 +63,6 @@
   <span class="tag">Figma + GitHub components for your agents</span>
   <nav>
     <a href="#overview" class="active">Overview</a>
-    <a href="#setup">Setup</a>
     <a href="#playground">Playground</a>
     <a href="#brainstorm">Brainstorm</a>
   </nav>
@@ -68,8 +71,9 @@
 <main>
   <section id="overview">
     <h2>Design on-brand with your agents</h2>
-    <p>Point Claude, GPT, DeepSeek, or any MCP-capable agent at your design system. They read your Figma design tokens and your GitHub components repo, then design and build interfaces that match your brand — no more generic output.</p>
+    <p>Point ChatGPT, Claude, DeepSeek, or any MCP-capable agent at your design system. They read your Figma design tokens and your GitHub components repo, then design and build interfaces that match your brand — no more generic output.</p>
     <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
+
     <div class="grid">
       <div class="card">
         <h3>Figma MCP (official)</h3>
@@ -80,42 +84,38 @@
       <div class="card">
         <h3>Design System MCP (this server)</h3>
         <p id="repo-label">Repo: <em>not configured</em></p>
-        <p>One MCP endpoint for everything: your product specs and your code components repo — so agents reuse real components, props, and styles instead of inventing them.</p>
+        <p>One MCP endpoint for everything: your product specs, your code components repo, and the mandatory design rules — so agents reuse real components instead of inventing them.</p>
         <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
       </div>
     </div>
-  </section>
-
-  <section id="setup" class="hidden">
-    <h2>Connect to your agent</h2>
-    <p>Add both MCP servers to your agent. They appear as tools alongside each other.</p>
 
     <div class="card">
-      <h3>Claude Code</h3>
-      <pre><code>claude mcp add --transport http figma https://mcp.figma.com/mcp
-claude mcp add --transport http design-system <span class="mcp-url">/mcp</span></code></pre>
+      <h3>Connect your agent</h3>
+      <p>Choose your agent below, then copy the config and add it. Both servers appear as tools in the same chat.</p>
+      <label for="agent-select">Agent</label>
+      <select id="agent-select">
+        <option value="chatgpt-codex" selected>ChatGPT / Codex</option>
+        <option value="claude-code">Claude Code</option>
+        <option value="cursor">Cursor</option>
+        <option value="vscode">VS Code</option>
+        <option value="deepseek">DeepSeek</option>
+      </select>
+      <div class="codehead">
+        <span id="agent-hint" style="font-size:13px;color:var(--muted)"></span>
+        <span>
+          <button id="btn-copy" class="secondary">Copy config</button>
+          <span id="copied" class="copied hidden">Copied!</span>
+        </span>
+      </div>
+      <pre><code id="agent-code"></code></pre>
     </div>
-    <div class="card">
-      <h3>Cursor</h3>
-      <pre><code>{
-  "mcpServers": {
-    "figma":          { "url": "https://mcp.figma.com/mcp" },
-    "design-system":  { "url": "<span class="mcp-url">/mcp</span>" }
-  }
-}</code></pre>
-    </div>
-    <div class="card">
-      <h3>VS Code</h3>
-      <p>Use <code>MCP: Add Server</code> → HTTP, then enter these URLs.</p>
-      <pre><code>https://mcp.figma.com/mcp
-<span class="mcp-url">/mcp</span></code></pre>
-    </div>
+
     <div class="card">
       <h3>Recommended prompt</h3>
       <pre><code>Use the Figma MCP (get_design_context + get_variable_defs) to read the design,
-and the design-system MCP (list_components, get_component, list_specs, get_spec)
-to pick components and read product specs from our repo.
-Build the UI reusing our components and design tokens. Stay on-brand.</code></pre>
+and the design-system MCP (list_rules, list_components, get_component, list_specs,
+get_spec) to follow the mandatory rules, pick components, and read product specs.
+Build the UI using ONLY the components in our design system. Stay on-brand.</code></pre>
     </div>
   </section>
 
@@ -155,7 +155,71 @@ Build the UI reusing our components and design tokens. Stay on-brand.</code></pr
 <script>
 const url = new URL(window.location.href);
 const mcpUrl = url.origin;
-document.querySelectorAll(".mcp-url").forEach(el => el.textContent = mcpUrl + "/mcp");
+const serverUrl = mcpUrl + "/mcp";
+const figmaUrl = "https://mcp.figma.com/mcp";
+
+const AGENTS = {
+  "chatgpt-codex": {
+    label: "ChatGPT / Codex",
+    hint: "ChatGPT: Settings → Connections → Add MCP server. Codex: add to your mcp config.",
+    code: `{
+  "mcpServers": {
+    "figma":          { "url": "${figmaUrl}" },
+    "design-system":  { "url": "${serverUrl}" }
+  }
+}`
+  },
+  "claude-code": {
+    label: "Claude Code",
+    hint: "Run these commands in your terminal.",
+    code: `claude mcp add --transport http figma ${figmaUrl}
+claude mcp add --transport http design-system ${serverUrl}`
+  },
+  "cursor": {
+    label: "Cursor",
+    hint: "Cursor Settings → MCP → + Add new global MCP server.",
+    code: `{
+  "mcpServers": {
+    "figma":          { "url": "${figmaUrl}" },
+    "design-system":  { "url": "${serverUrl}" }
+  }
+}`
+  },
+  "vscode": {
+    label: "VS Code",
+    hint: "Use MCP: Add Server → HTTP, then enter these URLs.",
+    code: `${figmaUrl}\n${serverUrl}`
+  },
+  "deepseek": {
+    label: "DeepSeek",
+    hint: "Add to your MCP-compatible client (e.g. Cline, Continue).",
+    code: `{
+  "mcpServers": {
+    "figma":          { "url": "${figmaUrl}" },
+    "design-system":  { "url": "${serverUrl}" }
+  }
+}`
+  }
+};
+
+function renderAgent() {
+  const key = document.getElementById("agent-select").value;
+  const agent = AGENTS[key];
+  document.getElementById("agent-code").textContent = agent.code;
+  document.getElementById("agent-hint").textContent = agent.hint;
+  document.getElementById("copied").classList.add("hidden");
+}
+
+document.getElementById("agent-select").addEventListener("change", renderAgent);
+renderAgent();
+
+document.getElementById("btn-copy").addEventListener("click", () => {
+  navigator.clipboard.writeText(document.getElementById("agent-code").textContent).then(() => {
+    const el = document.getElementById("copied");
+    el.classList.remove("hidden");
+    setTimeout(() => el.classList.add("hidden"), 1500);
+  });
+});
 
 async function checkStatus() {
   try {
@@ -193,8 +257,6 @@ function logMsg(text, cls) {
   log.prepend(div);
 }
 async function callTool(name, args) {
-  const method = "initialize";
-  // Use a lightweight raw JSON-RPC to avoid full MCP handshake in the browser
   try {
     const r = await fetch(mcpUrl + "/api/tools/" + name, {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -226,23 +288,29 @@ document.getElementById("btn-prompt").addEventListener("click", () => {
 
 IDEA: ${idea || "(your idea here)"}
 
+GUARDRAILS — these are absolute:
+1. NEVER create, add, or invent a component. Use ONLY the components in the design system.
+2. NO hallucinations: verify components and tokens exist before using them.
+3. When in doubt, ask the user.
+
 WORKFLOW:
 1. Read the design system with the Figma MCP (get_design_context, get_variable_defs) for the relevant file.
-2. Inspect our components repo with the design-system MCP (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
-3. Plan the UI using ONLY components and tokens that exist in our system.
-4. Identify gaps: any component we need to add.
-5. Output: (a) a component map, (b) the screens/flows, (c) what to build new, (d) rough implementation steps for an agent.
+2. Follow the design-system MCP rules (list_rules).
+3. Inspect our components repo (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
+4. Plan the UI using ONLY components and tokens that exist in our system.
+5. If a needed component does not exist, STOP and ask the user — do not invent one.
+6. Output: (a) a component map, (b) the screens/flows, (c) anything the user needs to provide, (d) rough implementation steps for an agent.
 
 Connect both MCP servers (figma, design-system) before running this.`;
   const out = document.getElementById("prompt-out");
   out.textContent = prompt;
   out.classList.remove("hidden");
+  navigator.clipboard.writeText(prompt);
 });
 document.getElementById("btn-copy-idea").addEventListener("click", () => {
   const idea = document.getElementById("idea").value.trim();
   navigator.clipboard?.writeText(idea);
 });
-document.getElementById("btn-prompt").addEventListener("click", () => { /* prompt shown above */ });
 
 checkStatus();
 </script>
