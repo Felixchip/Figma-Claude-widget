@@ -2,4 +2,6 @@ node_modules/
 dist/
 widget/node_modules/
 widget/dist/
+github-mcp/node_modules/
+github-mcp/dist/
 *.log

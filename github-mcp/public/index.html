@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System MCP — Figma + GitHub</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #161b26;
+    --border: #262d3d;
+    --text: #e6e9f0;
+    --muted: #8b93a7;
+    --accent: #d97757;
+    --accent2: #6b8afd;
+    --green: #3fb950;
+    --red: #f85149;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+  header { border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; background: var(--bg); z-index: 10; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .tag { color: var(--muted); font-size: 13px; }
+  nav { display: flex; gap: 4px; margin-left: auto; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: 6px; }
+  nav a:hover, nav a.active { color: var(--text); background: var(--panel); }
+  main { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
+  h2 { font-size: 24px; margin-bottom: 8px; }
+  h3 { font-size: 17px; margin: 24px 0 8px; }
+  p { color: var(--muted); margin-bottom: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 16px 0; }
+  .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 13px; border: 1px solid var(--border); }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .status.off .dot { background: var(--red); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { background: var(--panel); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  pre { background: #0b0e14; border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 13px; margin: 12px 0; }
+  pre code { background: none; padding: 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input, textarea, select { width: 100%; background: #0b0e14; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; }
+  textarea { min-height: 120px; resize: vertical; }
+  button { background: var(--accent); color: white; border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  button.secondary { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #log { max-height: 400px; overflow: auto; font-size: 12px; }
+  #log div { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+  #log .ok { color: var(--green); }
+  #log .err { color: var(--red); }
+  .hidden { display: none; }
+  .pill { display: inline-block; background: #0b0e14; border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 3px 10px; font-size: 12px; margin: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Design System MCP</h1>
+  <span class="tag">Figma + GitHub components for your agents</span>
+  <nav>
+    <a href="#overview" class="active">Overview</a>
+    <a href="#setup">Setup</a>
+    <a href="#playground">Playground</a>
+    <a href="#brainstorm">Brainstorm</a>
+  </nav>
+</header>
+
+<main>
+  <section id="overview">
+    <h2>Design on-brand with your agents</h2>
+    <p>Point Claude, GPT, DeepSeek, or any MCP-capable agent at your design system. They read your Figma design tokens and your GitHub components repo, then design and build interfaces that match your brand — no more generic output.</p>
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
+    <div class="grid">
+      <div class="card">
+        <h3>Figma MCP (official)</h3>
+        <p>Design system context: components, variables, styles, layouts straight from your Figma files.</p>
+        <p><code>https://mcp.figma.com/mcp</code></p>
+        <p class="pill">Hosted by Figma</p><p class="pill">OAuth with your Figma account</p><p class="pill">get_design_context</p><p class="pill">get_variable_defs</p>
+      </div>
+      <div class="card">
+        <h3>GitHub Components MCP (this server)</h3>
+        <p id="repo-label">Repo: <em>not configured</em></p>
+        <p>Reads your code components repo so agents reuse real components, props, and styles instead of inventing them.</p>
+        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="setup" class="hidden">
+    <h2>Connect to your agent</h2>
+    <p>Add both MCP servers to your agent. They appear as tools alongside each other.</p>
+
+    <div class="card">
+      <h3>Claude Code</h3>
+      <pre><code>claude mcp add --transport http figma https://mcp.figma.com/mcp
+claude mcp add --transport http github-components <span class="mcp-url">/mcp</span></code></pre>
+    </div>
+    <div class="card">
+      <h3>Cursor</h3>
+      <pre><code>{
+  "mcpServers": {
+    "figma":          { "url": "https://mcp.figma.com/mcp" },
+    "github-components": { "url": "<span class="mcp-url">/mcp</span>" }
+  }
+}</code></pre>
+    </div>
+    <div class="card">
+      <h3>VS Code</h3>
+      <p>Use <code>MCP: Add Server</code> → HTTP, then enter these URLs.</p>
+      <pre><code>https://mcp.figma.com/mcp
+<span class="mcp-url">/mcp</span></code></pre>
+    </div>
+    <div class="card">
+      <h3>Recommended prompt</h3>
+      <pre><code>Use the Figma MCP (get_design_context + get_variable_defs) to read the design,
+and the github-components MCP to pick components from our repo.
+Build the UI reusing our components and design tokens. Stay on-brand.</code></pre>
+    </div>
+  </section>
+
+  <section id="playground" class="hidden">
+    <h2>Playground</h2>
+    <p>Try the GitHub components tools directly from here.</p>
+    <div class="card">
+      <div class="toolbar">
+        <button data-tool="overview">Repo overview</button>
+        <button data-tool="components">List components</button>
+        <button data-tool="structure">Repo structure</button>
+        <input type="text" id="pg-query" placeholder="filter / search…" style="width:220px">
+        <input type="text" id="pg-path" placeholder="src/components/Button.tsx" style="width:260px">
+        <button data-tool="get">Get component</button>
+        <button data-tool="search">Search</button>
+      </div>
+      <div id="log" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <section id="brainstorm" class="hidden">
+    <h2>Brainstorm on-brand</h2>
+    <p>Describe an idea and get a plan grounded in your design system and components.</p>
+    <div class="card">
+      <label for="idea">Your idea</label>
+      <textarea id="idea" placeholder="e.g. A customer onboarding flow with a progress tracker, feature highlight cards, and a dark-mode settings screen…"></textarea>
+      <div class="toolbar">
+        <button id="btn-prompt">Copy agent prompt</button>
+        <button id="btn-copy-idea" class="secondary">Copy idea only</button>
+      </div>
+      <pre id="prompt-out" class="hidden"></pre>
+    </div>
+  </section>
+</main>
+
+<script>
+const url = new URL(window.location.href);
+const mcpUrl = url.origin;
+document.querySelectorAll(".mcp-url").forEach(el => el.textContent = mcpUrl + "/mcp");
+
+async function checkStatus() {
+  try {
+    const r = await fetch(mcpUrl + "/api/status");
+    const d = await r.json();
+    const st = document.getElementById("status");
+    st.classList.toggle("off", !d.configured);
+    document.getElementById("status-text").textContent = d.configured
+      ? `Server ready · repo ${d.repo}`
+      : `Server up, but no repo configured (set GITHUB_REPO)`;
+    if (d.repo) document.getElementById("repo-label").innerHTML = `Repo: <em>${d.repo}</em>`;
+  } catch (e) {
+    document.getElementById("status-text").textContent = "Cannot reach server";
+  }
+}
+
+// nav
+document.querySelectorAll("nav a").forEach(a => {
+  a.addEventListener("click", e => {
+    e.preventDefault();
+    document.querySelectorAll("nav a").forEach(x => x.classList.remove("active"));
+    a.classList.add("active");
+    const id = a.getAttribute("href").slice(1);
+    document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
+    document.getElementById(id).classList.remove("hidden");
+  });
+});
+
+// playground
+const log = document.getElementById("log");
+function logMsg(text, cls) {
+  const div = document.createElement("div");
+  div.className = cls || "";
+  div.textContent = text;
+  log.prepend(div);
+}
+async function callTool(name, args) {
+  const method = "initialize";
+  // Use a lightweight raw JSON-RPC to avoid full MCP handshake in the browser
+  try {
+    const r = await fetch(mcpUrl + "/api/tools/" + name, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(args || {})
+    });
+    const d = await r.json();
+    if (d.error) logMsg("✖ " + d.error, "err");
+    else logMsg(JSON.stringify(d.result, null, 2).slice(0, 4000), "ok");
+  } catch (e) {
+    logMsg("✖ " + e.message, "err");
+  }
+}
+document.querySelectorAll("[data-tool]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const t = btn.dataset.tool;
+    if (t === "overview") callTool("get_repo_overview");
+    if (t === "components") callTool("list_components", { query: document.getElementById("pg-query").value || undefined });
+    if (t === "structure") callTool("get_repo_structure");
+    if (t === "get") callTool("get_component", { path: document.getElementById("pg-path").value || "src/components/Button.tsx" });
+    if (t === "search") callTool("search_components", { query: document.getElementById("pg-query").value || "button" });
+  });
+});
+
+// brainstorm
+document.getElementById("btn-prompt").addEventListener("click", () => {
+  const idea = document.getElementById("idea").value.trim();
+  const prompt = `You are designing a feature for our product. Stay on-brand.
+
+IDEA: ${idea || "(your idea here)"}
+
+WORKFLOW:
+1. Read the design system with the Figma MCP (get_design_context, get_variable_defs) for the relevant file.
+2. Inspect our components repo with the github-components MCP (list_components, get_component, get_repo_structure).
+3. Plan the UI using ONLY components and tokens that exist in our system.
+4. Identify gaps: any component we need to add.
+5. Output: (a) a component map, (b) the screens/flows, (c) what to build new, (d) rough implementation steps for an agent.
+
+Connect both MCP servers (figma, github-components) before running this.`;
+  const out = document.getElementById("prompt-out");
+  out.textContent = prompt;
+  out.classList.remove("hidden");
+});
+document.getElementById("btn-copy-idea").addEventListener("click", () => {
+  const idea = document.getElementById("idea").value.trim();
+  navigator.clipboard?.writeText(idea);
+});
+document.getElementById("btn-prompt").addEventListener("click", () => { /* prompt shown above */ });
+
+checkStatus();
+</script>
+</body>
+</html>
