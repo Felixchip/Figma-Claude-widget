@@ -84,6 +84,8 @@ export function looksLikeComponentFile(path: string): boolean {
   const lower = path.toLowerCase();
   if (path.startsWith("node_modules/") || path.includes(".test.") || path.includes(".stories.") || path.includes(".spec.")) return false;
   if (/\.(d\.ts|config|mock|fixture|lock)/.test(lower)) return false;
+  // Test files
+  if (path.includes("/tests/") || /^tests\//.test(path) || /tests?\.swift$/.test(lower) || /_tests?\.[^.]+$/.test(lower)) return false;
   // Swift preview scaffolding, not the component itself
   if (/\+previews\.swift$/.test(lower)) return false;
   if (COMPONENT_EXTENSIONS.some((ext) => lower.endsWith(ext))) return true;
