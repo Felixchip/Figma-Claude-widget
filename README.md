@@ -19,6 +19,7 @@ Pair it with Figma's official hosted MCP (`https://mcp.figma.com/mcp`) for desig
 
 | Tool | Source | Purpose |
 | ---- | ------ | ------- |
+| `list_rules` | rules | **Mandatory** design-system component usage & rules doc |
 | `list_specs` | specs | List published product specs |
 | `get_spec` | specs | Full spec for an id |
 | `get_repo_overview` | GitHub | Repo name, description, default branch |
@@ -26,6 +27,15 @@ Pair it with Figma's official hosted MCP (`https://mcp.figma.com/mcp`) for desig
 | `get_component` | GitHub | Full source of a component file |
 | `get_repo_structure` | GitHub | Directory structure |
 | `search_components` | GitHub | Search component names/paths |
+
+## Mandatory rules
+
+The design-system component rules (`docs/ComponentUsage.md`) are binding for any agent connected to the MCP. They are delivered through the protocol itself:
+
+- **Server `instructions`** — every client receives a directive in the `initialize` response telling the agent it MUST read and abide by the rules before building.
+- **Resource `design://rules`** — the full rules doc, readable via MCP `resources/read`.
+- **`list_rules` tool** — agents can pull the full doc on demand.
+- **Rules reminder** — `list_components` and `get_component` prepend a reminder that the rules apply.
 
 ## Repository layout
 

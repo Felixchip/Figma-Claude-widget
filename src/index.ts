@@ -18,6 +18,7 @@ import {
   TOOL_DEFS as GITHUB_TOOL_DEFS,
   runTool,
 } from "./tools.js";
+import { DESIGN_SYSTEM_RULES, RULES_RESOURCE_URI } from "./rules.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -44,10 +45,42 @@ function toContent(result: { text: string; isError?: boolean }) {
 }
 
 function createMcpServer(): McpServer {
-  const server = new McpServer({
-    name: "design-system-mcp",
-    version: "0.2.0",
-  });
+  const server = new McpServer(
+    {
+      name: "design-system-mcp",
+      version: "0.2.0",
+    },
+    {
+      instructions:
+        "MANDATORY: Before designing or writing any code, you MUST read the design-system rules " +
+        `(resource ${RULES_RESOURCE_URI}, or the "list_rules" tool). The rules are binding: use GSA components ` +
+        "as documented, never invent components where a GSA component exists, never hardcode colors/spacing/radius/type " +
+        "that GSA tokens define, and respect each component's When-to-use and Do/Don't rules.",
+    }
+  );
+
+  // --- Rules resource -------------------------------------------------------
+  server.registerResource(
+    "design-system-rules",
+    RULES_RESOURCE_URI,
+    {
+      description: "Mandatory component usage and rules. Agents MUST read and abide by this before building.",
+      mimeType: "text/markdown",
+    },
+    async () => ({
+      contents: [{ uri: RULES_RESOURCE_URI, mimeType: "text/markdown", text: DESIGN_SYSTEM_RULES }],
+    })
+  );
+
+  server.registerTool(
+    "list_rules",
+    {
+      description:
+        "Read the MANDATORY design-system component usage and rules document. Call this before building anything. The rules are binding: use GSA components as documented, never invent components, and never hardcode values the GSA tokens define.",
+      inputSchema: {},
+    },
+    async () => ({ content: [{ type: "text" as const, text: DESIGN_SYSTEM_RULES }] })
+  );
 
   // --- Specs tools ---------------------------------------------------------
   server.registerTool(
@@ -95,7 +128,16 @@ function createMcpServer(): McpServer {
         limit: z.number().min(1).max(200).optional().describe("Max results (default 100)."),
       },
     },
-    async ({ query, limit }) => toContent(await listComponents(githubCfg, query, limit))
+    async ({ query, limit }) => {
+      const result = await listComponents(githubCfg, query, limit);
+      const rulesHeader =
+        "DESIGN-SYSTEM RULES APPLY — read list_rules (or resource design://rules) before building. " +
+        "Use only the components listed here; never invent components or hardcode tokens.\n\n";
+      return {
+        content: [{ type: "text" as const, text: rulesHeader + result.text }],
+        isError: result.isError,
+      };
+    }
   );
 
   server.registerTool(
@@ -104,7 +146,14 @@ function createMcpServer(): McpServer {
       description: GITHUB_TOOL_DEFS.get_component.description,
       inputSchema: { path: z.string().describe("File path in the repo, e.g. 'src/components/Button.tsx'.") },
     },
-    async ({ path }) => toContent(await getComponent(githubCfg, path))
+    async ({ path }) => {
+      const result = await getComponent(githubCfg, path);
+      const header = "Rules apply to this component's usage — see list_rules.\n\n";
+      return {
+        content: [{ type: "text" as const, text: result.isError ? result.text : header + result.text }],
+        isError: result.isError,
+      };
+    }
   );
 
   server.registerTool(
@@ -174,6 +223,7 @@ app.get("/api/status", (_req, res) => {
     repo: githubCfg.owner && githubCfg.repo ? `${githubCfg.owner}/${githubCfg.repo}` : null,
     githubTools: Object.keys(GITHUB_TOOL_DEFS),
     specTools: ["list_specs", "get_spec"],
+    rules: "design://rules (list_rules tool)",
   });
 });
 
@@ -215,6 +265,11 @@ app.get("/api/specs/:id", async (req, res) => {
 app.post("/api/tools/:name", async (req, res) => {
   const name = req.params.name;
   const args = req.body ?? {};
+
+  if (name === "list_rules") {
+    res.json({ result: DESIGN_SYSTEM_RULES, isError: false });
+    return;
+  }
 
   if (name === "list_specs" || name === "get_spec") {
     try {

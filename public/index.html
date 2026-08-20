@@ -81,7 +81,7 @@
         <h3>Design System MCP (this server)</h3>
         <p id="repo-label">Repo: <em>not configured</em></p>
         <p>One MCP endpoint for everything: your product specs and your code components repo — so agents reuse real components, props, and styles instead of inventing them.</p>
-        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p><p class="pill">list_specs</p><p class="pill">get_spec</p>
+        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
       </div>
     </div>
   </section>
@@ -127,6 +127,7 @@ Build the UI reusing our components and design tokens. Stay on-brand.</code></pr
         <button data-tool="overview">Repo overview</button>
         <button data-tool="components">List components</button>
         <button data-tool="structure">Repo structure</button>
+        <button data-tool="rules">List rules</button>
         <input type="text" id="pg-query" placeholder="filter / search…" style="width:220px">
         <input type="text" id="pg-path" placeholder="src/components/Button.tsx" style="width:260px">
         <button data-tool="get">Get component</button>
@@ -212,6 +213,7 @@ document.querySelectorAll("[data-tool]").forEach(btn => {
     if (t === "overview") callTool("get_repo_overview");
     if (t === "components") callTool("list_components", { query: document.getElementById("pg-query").value || undefined });
     if (t === "structure") callTool("get_repo_structure");
+    if (t === "rules") callTool("list_rules");
     if (t === "get") callTool("get_component", { path: document.getElementById("pg-path").value || "src/components/Button.tsx" });
     if (t === "search") callTool("search_components", { query: document.getElementById("pg-query").value || "button" });
   });
