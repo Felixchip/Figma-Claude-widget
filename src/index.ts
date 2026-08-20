@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { randomUUID } from "crypto";
+import { randomUUID, webcrypto } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -19,6 +19,12 @@ import {
   runTool,
 } from "./tools.js";
 import { DESIGN_SYSTEM_RULES, RULES_RESOURCE_URI } from "./rules.js";
+
+// Ensure a global `crypto` exists (Node < 19 and some runtimes lack it). The
+// MCP SDK references the global `crypto` for session/stream ids.
+if (typeof globalThis.crypto === "undefined") {
+  (globalThis as any).crypto = webcrypto;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
