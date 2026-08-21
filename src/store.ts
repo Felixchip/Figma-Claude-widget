@@ -18,12 +18,23 @@ export type Spec = {
 
 export type SpecRow = Pick<Spec, "id" | "nodeId" | "updatedAt">;
 
+export type FigmaSettings = {
+  token: string;
+  fileKey: string;
+  fileName: string;
+  userName: string;
+  connectedAt: string;
+};
+
 export interface SpecStore {
   ready: boolean;
   init(): Promise<void>;
   list(): Promise<SpecRow[]>;
   get(id: string): Promise<Spec | undefined>;
   create(spec: Spec): Promise<Spec>;
+  getFigmaSettings(): Promise<FigmaSettings | undefined>;
+  saveFigmaSettings(s: FigmaSettings): Promise<void>;
+  clearFigmaSettings(): Promise<void>;
 }
 
 function toSpec(row: any): Spec {
@@ -70,7 +81,51 @@ class PostgresStore implements SpecStore {
         updated_at TIMESTAMPTZ NOT NULL
       )
     `);
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL
+      )
+    `);
     this.ready = true;
+  }
+
+  private async getSetting(key: string): Promise<string | undefined> {
+    const res = await this.pool.query("SELECT value FROM settings WHERE key = $1", [key]);
+    return res.rows[0]?.value;
+  }
+
+  private async setSetting(key: string, value: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [key, value]
+    );
+  }
+
+  async getFigmaSettings(): Promise<FigmaSettings | undefined> {
+    const token = await this.getSetting("figma_token");
+    if (!token) return undefined;
+    const fileKey = (await this.getSetting("figma_file_key")) ?? "";
+    const fileName = (await this.getSetting("figma_file_name")) ?? "";
+    const userName = (await this.getSetting("figma_user_name")) ?? "";
+    const connectedAt = (await this.getSetting("figma_connected_at")) ?? "";
+    return { token, fileKey, fileName, userName, connectedAt };
+  }
+
+  async saveFigmaSettings(s: FigmaSettings): Promise<void> {
+    await this.setSetting("figma_token", s.token);
+    await this.setSetting("figma_file_key", s.fileKey);
+    await this.setSetting("figma_file_name", s.fileName);
+    await this.setSetting("figma_user_name", s.userName);
+    await this.setSetting("figma_connected_at", s.connectedAt);
+  }
+
+  async clearFigmaSettings(): Promise<void> {
+    for (const key of ["figma_token", "figma_file_key", "figma_file_name", "figma_user_name", "figma_connected_at"]) {
+      await this.pool.query("DELETE FROM settings WHERE key = $1", [key]);
+    }
   }
 
   async list(): Promise<SpecRow[]> {
@@ -115,6 +170,7 @@ class PostgresStore implements SpecStore {
 
 class MemoryStore implements SpecStore {
   private specs = new Map<string, Spec>();
+  private settings = new Map<string, string>();
   ready = true;
 
   async init(): Promise<void> {}
@@ -132,6 +188,32 @@ class MemoryStore implements SpecStore {
   async create(spec: Spec): Promise<Spec> {
     this.specs.set(spec.id, spec);
     return spec;
+  }
+
+  async getFigmaSettings(): Promise<FigmaSettings | undefined> {
+    const token = this.settings.get("figma_token");
+    if (!token) return undefined;
+    return {
+      token,
+      fileKey: this.settings.get("figma_file_key") ?? "",
+      fileName: this.settings.get("figma_file_name") ?? "",
+      userName: this.settings.get("figma_user_name") ?? "",
+      connectedAt: this.settings.get("figma_connected_at") ?? "",
+    };
+  }
+
+  async saveFigmaSettings(s: FigmaSettings): Promise<void> {
+    this.settings.set("figma_token", s.token);
+    this.settings.set("figma_file_key", s.fileKey);
+    this.settings.set("figma_file_name", s.fileName);
+    this.settings.set("figma_user_name", s.userName);
+    this.settings.set("figma_connected_at", s.connectedAt);
+  }
+
+  async clearFigmaSettings(): Promise<void> {
+    for (const key of ["figma_token", "figma_file_key", "figma_file_name", "figma_user_name", "figma_connected_at"]) {
+      this.settings.delete(key);
+    }
   }
 }
 

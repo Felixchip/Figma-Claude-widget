@@ -19,6 +19,23 @@ import {
   runTool,
 } from "./tools.js";
 import { DESIGN_SYSTEM_RULES, RULES_RESOURCE_URI } from "./rules.js";
+import {
+  exchangeFigmaCode,
+  figmaAuthUrl,
+  figmaMe,
+  figmaFile,
+  figmaOAuthConfig,
+  fileKeyFromUrl,
+} from "./figma.js";
+import {
+  getFigmaLibrary,
+  listFigmaComponents,
+  getFigmaComponent,
+  getFigmaTokens,
+  figmaConnected,
+  verifyFigmaConnection,
+  FIGMA_TOOL_DEFS,
+} from "./figmaTools.js";
 
 // Ensure a global `crypto` exists (Node < 19 and some runtimes lack it). The
 // MCP SDK references the global `crypto` for session/stream ids.
@@ -189,6 +206,34 @@ function createMcpServer(): McpServer {
     async ({ query }) => toContent(await searchComponents(githubCfg, query))
   );
 
+  // --- Figma library tools -------------------------------------------------
+  server.registerTool(
+    "get_figma_library",
+    { description: FIGMA_TOOL_DEFS.get_figma_library.description, inputSchema: {} },
+    async () => toContent(await getFigmaLibrary(store))
+  );
+
+  server.registerTool(
+    "list_figma_components",
+    { description: FIGMA_TOOL_DEFS.list_figma_components.description, inputSchema: {} },
+    async () => toContent(await listFigmaComponents(store))
+  );
+
+  server.registerTool(
+    "get_figma_component",
+    {
+      description: FIGMA_TOOL_DEFS.get_figma_component.description,
+      inputSchema: { query: z.string().describe("Component name (exact or partial match).") },
+    },
+    async ({ query }) => toContent(await getFigmaComponent(store, query))
+  );
+
+  server.registerTool(
+    "get_figma_tokens",
+    { description: FIGMA_TOOL_DEFS.get_figma_tokens.description, inputSchema: {} },
+    async () => toContent(await getFigmaTokens(store))
+  );
+
   return server;
 }
 
@@ -235,14 +280,103 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, specs: store.ready ? null : "initializing", github: configReady(githubCfg) });
 });
 
-app.get("/api/status", (_req, res) => {
+app.get("/api/status", async (_req, res) => {
+  const figma = await figmaConnected(store);
   res.json({
     configured: configReady(githubCfg),
     repo: githubCfg.owner && githubCfg.repo ? `${githubCfg.owner}/${githubCfg.repo}` : null,
     githubTools: Object.keys(GITHUB_TOOL_DEFS),
     specTools: ["list_specs", "get_spec"],
     rules: "design://rules (list_rules tool)",
+    figma: figma ? await (async () => {
+      const s = await store.getFigmaSettings();
+      return { connected: true, userName: s?.userName, fileName: s?.fileName };
+    })() : { connected: false },
+    figmaTools: Object.keys(FIGMA_TOOL_DEFS),
   });
+});
+
+// --- Figma OAuth -------------------------------------------------------------
+
+const figmaOAuthState = new Map<string, number>();
+
+app.get("/api/figma/oauth/start", (req, res) => {
+  const cfg = figmaOAuthConfig();
+  if (!cfg) {
+    res.status(500).json({ error: "Figma OAuth not configured (set FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET, PUBLIC_BASE_URL)." });
+    return;
+  }
+  const state = randomUUID();
+  figmaOAuthState.set(state, Date.now());
+  res.redirect(figmaAuthUrl(cfg, state));
+});
+
+app.get("/api/figma/oauth/callback", async (req, res) => {
+  const { code, state, error } = req.query as Record<string, string | undefined>;
+  if (error) {
+    res.status(400).send(`Figma authorization failed: ${error}`);
+    return;
+  }
+  const started = figmaOAuthState.get(state ?? "");
+  figmaOAuthState.delete(state ?? "");
+  if (!started || Date.now() - started > 10 * 60 * 1000) {
+    res.status(400).send("Invalid or expired OAuth state.");
+    return;
+  }
+  const cfg = figmaOAuthConfig();
+  if (!cfg) {
+    res.status(500).send("Figma OAuth not configured.");
+    return;
+  }
+  try {
+    const token = await exchangeFigmaCode(cfg, code ?? "");
+    const me = await figmaMe(token);
+    await store.saveFigmaSettings({
+      token,
+      fileKey: "",
+      fileName: "",
+      userName: me.handle ?? me.email ?? "Figma user",
+      connectedAt: new Date().toISOString(),
+    });
+    res.redirect(`/?figma=connected`);
+  } catch (err) {
+    res.status(500).send(`OAuth failed: ${(err as Error).message}`);
+  }
+});
+
+app.post("/api/figma/library", async (req, res) => {
+  const { fileUrl } = req.body ?? {};
+  const key = fileKeyFromUrl(String(fileUrl ?? ""));
+  if (!key) {
+    res.status(400).json({ error: "Invalid Figma file URL. Use https://www.figma.com/design/<key>/... or /file/<key>/..." });
+    return;
+  }
+  const s = await store.getFigmaSettings();
+  if (!s?.token) {
+    res.status(401).json({ error: "Figma not connected." });
+    return;
+  }
+  try {
+    const file = await figmaFile(s.token, key);
+    await store.saveFigmaSettings({ ...s, fileKey: key, fileName: file.name ?? "Untitled" });
+    res.json({ fileKey: key, fileName: file.name ?? "Untitled", pages: (file.document?.children ?? []).map((p: any) => p.name) });
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+app.get("/api/figma/status", async (_req, res) => {
+  const s = await store.getFigmaSettings();
+  if (!s?.token) {
+    res.json({ connected: false, configured: !!figmaOAuthConfig() });
+    return;
+  }
+  res.json({ connected: true, userName: s.userName, fileName: s.fileName, fileKey: s.fileKey, configured: true });
+});
+
+app.post("/api/figma/disconnect", async (_req, res) => {
+  await store.clearFigmaSettings();
+  res.json({ ok: true });
 });
 
 // --- Specs REST ------------------------------------------------------------
@@ -302,6 +436,22 @@ app.post("/api/tools/:name", async (req, res) => {
         return;
       }
       res.json({ result: formatSpec(spec), isError: false });
+      return;
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+      return;
+    }
+  }
+
+  if (name in FIGMA_TOOL_DEFS) {
+    try {
+      let result;
+      if (name === "get_figma_library") result = await getFigmaLibrary(store);
+      else if (name === "list_figma_components") result = await listFigmaComponents(store);
+      else if (name === "get_figma_component") result = await getFigmaComponent(store, args?.query ?? "");
+      else if (name === "get_figma_tokens") result = await getFigmaTokens(store);
+      else { res.status(404).json({ error: `Unknown tool '${name}'` }); return; }
+      res.json({ result: result.text, isError: result.isError ?? false });
       return;
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });

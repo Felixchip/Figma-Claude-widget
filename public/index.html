@@ -129,20 +129,43 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
 
   <section id="settings" class="hidden">
     <h2>Settings</h2>
-    <p>Your connected MCP servers.</p>
-    <div class="grid">
-      <div class="card">
-        <h3>Figma MCP (official)</h3>
-        <p>Design system context: components, variables, styles, layouts straight from your Figma files.</p>
-        <p><code>https://mcp.figma.com/mcp</code></p>
-        <p class="pill">Hosted by Figma</p><p class="pill">OAuth with your Figma account</p><p class="pill">get_design_context</p><p class="pill">get_variable_defs</p>
+    <p>Connect your design library and view your MCP servers.</p>
+
+    <div class="card">
+      <h3>Figma design library</h3>
+      <p>Connect a Figma account (read-only) and pick the design library file to expose to agents via the CMC Build Kit MCP.</p>
+      <div id="figma-status" style="margin-bottom:12px">
+        <span class="status off"><span class="dot"></span><span>Checking…</span></span>
       </div>
-      <div class="card">
-        <h3>CMC Build Kit (this server)</h3>
-        <p id="repo-label">Repo: <em>not configured</em></p>
-        <p>One MCP endpoint for everything: your product specs, your code components repo, and the mandatory design rules — so agents reuse real components instead of inventing them.</p>
-        <p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">search_components</p><p class="pill">get_repo_structure</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
+      <div id="figma-connected" class="hidden">
+        <p id="figma-info" style="margin-bottom:8px"></p>
+        <label for="figma-file-url">Design library file URL</label>
+        <div class="toolbar">
+          <input type="text" id="figma-file-url" placeholder="https://www.figma.com/design/XXXX/My-Design-Library" style="flex:1">
+          <button id="btn-figma-pick">Pick library</button>
+        </div>
+        <p id="figma-pick-status" style="margin-top:8px;font-size:13px"></p>
+        <div class="toolbar" style="margin-top:8px">
+          <button id="btn-figma-disconnect" class="secondary">Disconnect</button>
+        </div>
       </div>
+      <div id="figma-not-connected" class="hidden">
+        <button id="btn-figma-connect">Connect Figma</button>
+        <p id="figma-err" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Figma MCP (official)</h3>
+      <p>Design system context: components, variables, styles, layouts straight from your Figma files.</p>
+      <p><code>https://mcp.figma.com/mcp</code></p>
+      <p class="pill">Hosted by Figma</p><p class="pill">OAuth with your Figma account</p><p class="pill">get_design_context</p><p class="pill">get_variable_defs</p>
+    </div>
+    <div class="card">
+      <h3>CMC Build Kit (this server)</h3>
+      <p id="repo-label">Repo: <em>not configured</em></p>
+      <p>One MCP endpoint for everything: your Figma design library, your product specs, your code components repo, and the mandatory design rules — so agents reuse real components instead of inventing them.</p>
+      <p class="pill">get_figma_library</p><p class="pill">list_figma_components</p><p class="pill">get_figma_component</p><p class="pill">get_figma_tokens</p><p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
     </div>
   </section>
 
@@ -339,8 +362,60 @@ document.getElementById("btn-copy-idea").addEventListener("click", () => {
   navigator.clipboard?.writeText(idea);
 });
 
+// figma settings
+async function refreshFigma() {
+  try {
+    const r = await fetch(mcpUrl + "/api/figma/status");
+    const d = await r.json();
+    const connected = document.getElementById("figma-connected");
+    const notConnected = document.getElementById("figma-not-connected");
+    if (d.connected) {
+      notConnected.classList.add("hidden");
+      connected.classList.remove("hidden");
+      document.getElementById("figma-info").textContent = `Connected as ${d.userName}${d.fileName ? ` · Library: ${d.fileName}` : " · no library picked yet"}`;
+    } else {
+      connected.classList.add("hidden");
+      notConnected.classList.remove("hidden");
+      document.getElementById("figma-err").textContent = d.configured ? "" : "Figma OAuth not configured (set FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET, PUBLIC_BASE_URL).";
+    }
+  } catch (e) {
+    document.getElementById("figma-err").textContent = "Cannot reach server";
+  }
+}
+document.getElementById("btn-figma-connect").addEventListener("click", () => {
+  window.location.href = mcpUrl + "/api/figma/oauth/start";
+});
+document.getElementById("btn-figma-pick").addEventListener("click", async () => {
+  const url = document.getElementById("figma-file-url").value.trim();
+  const st = document.getElementById("figma-pick-status");
+  if (!url) { st.textContent = "Enter a Figma file URL first."; return; }
+  st.textContent = "Picking…";
+  try {
+    const r = await fetch(mcpUrl + "/api/figma/library", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileUrl: url })
+    });
+    const d = await r.json();
+    if (!r.ok) { st.textContent = d.error || "Failed to pick library."; return; }
+    st.textContent = `Picked "${d.fileName}" (${d.fileKey}). Pages: ${d.pages.join(", ")}`;
+    refreshFigma();
+  } catch (e) {
+    st.textContent = "Request failed: " + e.message;
+  }
+});
+document.getElementById("btn-figma-disconnect").addEventListener("click", async () => {
+  await fetch(mcpUrl + "/api/figma/disconnect", { method: "POST" });
+  refreshFigma();
+});
+
+// handle OAuth callback query param
+if (new URLSearchParams(window.location.search).get("figma") === "connected") {
+  history.replaceState({}, "", window.location.pathname);
+  refreshFigma();
+}
+
 checkStatus();
-</script>
+refreshFigma();
 <footer>© <span class="brand">CMCMarkets</span> · CMC Build Kit</footer>
 </body>
 </html>

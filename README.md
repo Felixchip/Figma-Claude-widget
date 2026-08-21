@@ -2,24 +2,26 @@
 
 One MCP server + web UI that gives your agents (Claude, DeepSeek, ChatGPT) everything they need to design and build **on-brand** interfaces:
 
+- **Figma design library** connected by an admin (`get_figma_library`, `list_figma_components`, `get_figma_component`, `get_figma_tokens`)
 - **Product specs** published from the Figma widget (`list_specs`, `get_spec`)
 - **Code components repo** on GitHub (`list_components`, `get_component`, `search_components`, `get_repo_structure`, `get_repo_overview`)
-- **Web UI** at the root: setup guides, playground, brainstorm prompt generator
-
-Pair it with Figma's official hosted MCP (`https://mcp.figma.com/mcp`) for design-system context from Figma.
+- **Web UI** at the root: overview, settings (Figma + GitHub), brainstorm prompt generator
 
 ## How it works
 
-1. In Figma, the widget captures a product spec (Purpose, Actions/Interactions, States, Rules, Data requirements, Navigation, Acceptance criteria, Node ID) and publishes it to this server.
-2. Agents connect to this MCP server — they see spec tools AND GitHub components tools in one interface.
-3. Agents also connect to Figma's official MCP for the visual design context.
-4. They design/build interfaces reusing your real components and tokens.
+1. An admin connects a Figma account (read-only OAuth) in the web UI and picks the design library file.
+2. Agents connect to this MCP server — they see the Figma library, specs, and GitHub components tools in one interface.
+3. Agents follow the mandatory design rules and build interfaces reusing the real Figma components, tokens, and repo components.
 
 ## One MCP endpoint, all tools
 
 | Tool | Source | Purpose |
 | ---- | ------ | ------- |
 | `list_rules` | rules | **Mandatory** design-system component usage & rules doc |
+| `get_figma_library` | Figma | Connected design library overview (file, pages) |
+| `list_figma_components` | Figma | List components in the Figma library |
+| `get_figma_component` | Figma | Details of one Figma component by name |
+| `get_figma_tokens` | Figma | Design tokens/variables from the Figma library |
 | `list_specs` | specs | List published product specs |
 | `get_spec` | specs | Full spec for an id |
 | `get_repo_overview` | GitHub | Repo name, description, default branch |
@@ -27,6 +29,25 @@ Pair it with Figma's official hosted MCP (`https://mcp.figma.com/mcp`) for desig
 | `get_component` | GitHub | Full source of a component file |
 | `get_repo_structure` | GitHub | Directory structure |
 | `search_components` | GitHub | Search component names/paths |
+
+## Figma OAuth setup
+
+To let admins connect a Figma library:
+
+1. Go to **Figma → Settings → Security → OAuth apps** and create a new app.
+2. Set the **Redirect URI** to `https://<your-app>.up.railway.app/api/figma/oauth/callback`.
+3. Set the **scopes** to `file_read` (read-only).
+4. Add env vars on Railway:
+
+| Var | Purpose |
+| --- | ------- |
+| `FIGMA_CLIENT_ID` | Figma OAuth app client id |
+| `FIGMA_CLIENT_SECRET` | Figma OAuth app secret |
+| `PUBLIC_BASE_URL` | Your app URL, e.g. `https://your-app.up.railway.app` |
+
+5. In the web UI → Settings → **Connect Figma**, then paste a design library file URL and **Pick library**.
+
+The connected token + library are stored server-side (Postgres) and exposed to agents via the Figma MCP tools.
 
 ## Mandatory rules
 
@@ -43,10 +64,12 @@ The design-system component rules (`docs/ComponentUsage.md`) are binding for any
 ├── package.json       # Unified server (deployed on Railway)
 ├── src/
 │   ├── index.ts       # MCP endpoint + REST + static web UI
-│   ├── store.ts       # Postgres / in-memory spec storage
+│   ├── store.ts       # Postgres / in-memory spec + settings storage
 │   ├── github.ts      # GitHub API client
-│   └── tools.ts       # GitHub component tool implementations
-├── public/            # Web UI (overview/setup/playground/brainstorm)
+│   ├── tools.ts       # GitHub component tool implementations
+│   ├── figma.ts       # Figma OAuth + API client
+│   └── figmaTools.ts  # Figma library MCP tools
+├── public/            # Web UI (overview/settings/brainstorm)
 ├── railway.json       # Railway deploy config
 └── widget/            # Figma widget source (spec form)
 ```
@@ -63,6 +86,8 @@ The design-system component rules (`docs/ComponentUsage.md`) are binding for any
 | `GITHUB_OWNER` + `GITHUB_REPO_NAME` | Alternative to `GITHUB_REPO` |
 | `GITHUB_TOKEN` | Token (required for private repos) |
 | `GITHUB_BRANCH` | Branch to read (default `main`) |
+| `FIGMA_CLIENT_ID` / `FIGMA_CLIENT_SECRET` | Figma OAuth app credentials (see Figma OAuth setup) |
+| `PUBLIC_BASE_URL` | Your app URL, e.g. `https://your-app.up.railway.app` |
 
 Result: `https://<your-app>.up.railway.app` — web UI at `/`, MCP at `/mcp`, healthcheck at `/health`.
 
