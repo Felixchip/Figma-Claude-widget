@@ -140,12 +140,6 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
           <span class="status" id="figma-verify-status"><span class="dot"></span><span id="figma-verify-text">Verifying…</span></span>
           <p id="figma-verify-detail" style="margin-top:6px;font-size:13px;color:var(--muted)"></p>
         </div>
-        <label for="figma-file-url">Design library file URL</label>
-        <div class="toolbar">
-          <input type="text" id="figma-file-url" placeholder="https://www.figma.com/design/XXXX/My-Design-Library" style="flex:1">
-          <button id="btn-figma-pick">Pick library</button>
-        </div>
-        <p id="figma-pick-status" style="margin-top:8px;font-size:13px"></p>
         <div class="toolbar" style="margin-top:8px">
           <button id="btn-figma-disconnect" class="secondary">Disconnect</button>
           <button id="btn-figma-verify" class="secondary">Verify connection</button>
@@ -437,24 +431,6 @@ document.getElementById("btn-figma-pat").addEventListener("click", async () => {
     if (!r.ok) { st.textContent = d.error || "Failed to connect."; return; }
     st.textContent = "";
     document.getElementById("figma-pat").value = "";
-    refreshFigma();
-  } catch (e) {
-    st.textContent = "Request failed: " + e.message;
-  }
-});
-document.getElementById("btn-figma-pick").addEventListener("click", async () => {
-  const url = document.getElementById("figma-file-url").value.trim();
-  const st = document.getElementById("figma-pick-status");
-  if (!url) { st.textContent = "Enter a Figma file URL first."; return; }
-  st.textContent = "Picking…";
-  try {
-    const r = await fetch(mcpUrl + "/api/figma/library", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileUrl: url })
-    });
-    const d = await r.json();
-    if (!r.ok) { st.textContent = d.error || "Failed to pick library."; return; }
-    st.textContent = `Picked "${d.fileName}" (${d.fileKey}). Pages: ${d.pages.join(", ")}`;
     refreshFigma();
   } catch (e) {
     st.textContent = "Request failed: " + e.message;
