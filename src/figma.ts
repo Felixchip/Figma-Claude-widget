@@ -123,3 +123,11 @@ export function fileKeyFromUrl(url: string): string | null {
   const m = url.match(/figma\.com\/(?:file|design)\/([^/?#]+)/);
   return m ? m[1] : null;
 }
+
+export function figmaEnvToken(): string | undefined {
+  return process.env.FIGMA_PAT || process.env.FIGMA_TOKEN || undefined;
+}
+
+export function figmaEnvFileKey(): string | undefined {
+  return process.env.FIGMA_FILE_KEY || undefined;
+}

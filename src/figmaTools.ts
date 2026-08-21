@@ -5,13 +5,28 @@ import {
   figmaFile,
   figmaFileVariables,
   figmaMe,
+  figmaEnvToken,
+  figmaEnvFileKey,
 } from "./figma.js";
 
 export type ToolResult = { text: string; isError?: boolean };
 
+async function resolveFigma(store: SpecStore) {
+  const db = await store.getFigmaSettings();
+  const envToken = figmaEnvToken();
+  const token = db?.token || envToken;
+  const fileKey = db?.fileKey || figmaEnvFileKey() || "";
+  return {
+    token: token || "",
+    fileKey,
+    userName: db?.userName || (envToken ? "FIGMA_PAT (env)" : ""),
+    fileName: db?.fileName || "",
+  };
+}
+
 export async function getFigmaLibrary(store: SpecStore): Promise<ToolResult> {
-  const s = await store.getFigmaSettings();
-  if (!s || !s.token) return { text: "Figma is not connected. Ask an admin to connect it in the CMC Build Kit web UI.", isError: true };
+  const s = await resolveFigma(store);
+  if (!s.token) return { text: "Figma is not connected. Ask an admin to connect it in the CMC Build Kit web UI.", isError: true };
   if (!s.fileKey) return { text: "Figma is connected but no library file is selected. Ask an admin to pick a file.", isError: true };
   try {
     const file = await figmaFile(s.token, s.fileKey);
@@ -35,8 +50,8 @@ export async function getFigmaLibrary(store: SpecStore): Promise<ToolResult> {
 }
 
 export async function listFigmaComponents(store: SpecStore): Promise<ToolResult> {
-  const s = await store.getFigmaSettings();
-  if (!s?.token || !s.fileKey) return { text: "Figma is not connected or no library file selected.", isError: true };
+  const s = await resolveFigma(store);
+  if (!s.token || !s.fileKey) return { text: "Figma is not connected or no library file selected.", isError: true };
   try {
     const file = await figmaFile(s.token, s.fileKey);
     const comps = extractComponents(file);
@@ -47,8 +62,8 @@ export async function listFigmaComponents(store: SpecStore): Promise<ToolResult>
 }
 
 export async function getFigmaComponent(store: SpecStore, query: string): Promise<ToolResult> {
-  const s = await store.getFigmaSettings();
-  if (!s?.token || !s.fileKey) return { text: "Figma is not connected or no library file selected.", isError: true };
+  const s = await resolveFigma(store);
+  if (!s.token || !s.fileKey) return { text: "Figma is not connected or no library file selected.", isError: true };
   try {
     const file = await figmaFile(s.token, s.fileKey);
     const comps = extractComponents(file);
@@ -65,8 +80,8 @@ export async function getFigmaComponent(store: SpecStore, query: string): Promis
 }
 
 export async function getFigmaTokens(store: SpecStore): Promise<ToolResult> {
-  const s = await store.getFigmaSettings();
-  if (!s?.token || !s.fileKey) return { text: "Figma is not connected or no library file selected.", isError: true };
+  const s = await resolveFigma(store);
+  if (!s.token || !s.fileKey) return { text: "Figma is not connected or no library file selected.", isError: true };
   try {
     const vars = await figmaFileVariables(s.token, s.fileKey);
     const byType = extractVariables(vars);
@@ -77,19 +92,19 @@ export async function getFigmaTokens(store: SpecStore): Promise<ToolResult> {
 }
 
 export async function figmaConnected(store: SpecStore): Promise<boolean> {
-  const s = await store.getFigmaSettings();
-  return !!(s?.token && s.fileKey);
+  const s = await resolveFigma(store);
+  return !!(s.token && s.fileKey);
 }
 
 export async function figmaStatus(store: SpecStore): Promise<{ connected: boolean; userName?: string; fileName?: string }> {
-  const s = await store.getFigmaSettings();
-  if (!s?.token) return { connected: false };
+  const s = await resolveFigma(store);
+  if (!s.token) return { connected: false };
   return { connected: true, userName: s.userName, fileName: s.fileName };
 }
 
 export async function verifyFigmaConnection(store: SpecStore): Promise<ToolResult> {
-  const s = await store.getFigmaSettings();
-  if (!s?.token) return { text: "Figma is not connected.", isError: true };
+  const s = await resolveFigma(store);
+  if (!s.token) return { text: "Figma is not connected.", isError: true };
   try {
     const me = await figmaMe(s.token);
     return { text: JSON.stringify({ handle: me.handle, email: me.email }, null, 2) };

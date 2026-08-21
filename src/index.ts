@@ -26,6 +26,8 @@ import {
   figmaFile,
   figmaOAuthConfig,
   fileKeyFromUrl,
+  figmaEnvToken,
+  figmaEnvFileKey,
 } from "./figma.js";
 import {
   getFigmaLibrary,
@@ -388,12 +390,21 @@ app.post("/api/figma/pat", async (req, res) => {
 });
 
 app.get("/api/figma/status", async (_req, res) => {
-  const s = await store.getFigmaSettings();
-  if (!s?.token) {
-    res.json({ connected: false, configured: !!figmaOAuthConfig() });
+  const db = await store.getFigmaSettings();
+  const envToken = figmaEnvToken();
+  const token = db?.token || envToken;
+  if (!token) {
+    res.json({ connected: false, configured: !!figmaOAuthConfig(), envConfigured: !!envToken });
     return;
   }
-  res.json({ connected: true, userName: s.userName, fileName: s.fileName, fileKey: s.fileKey, configured: true });
+  res.json({
+    connected: true,
+    userName: db?.userName || (envToken ? "FIGMA_PAT (env)" : ""),
+    fileName: db?.fileName || "",
+    fileKey: db?.fileKey || figmaEnvFileKey() || "",
+    configured: true,
+    viaEnv: !!envToken,
+  });
 });
 
 app.post("/api/figma/disconnect", async (_req, res) => {
