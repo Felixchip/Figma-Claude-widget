@@ -142,19 +142,19 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
 
   <section id="settings" class="hidden">
     <h2>Settings</h2>
-    <p>Connect your design library and view your MCP servers.</p>
+    <p>These are the component sources.</p>
 
     <div class="card">
       <h3>Figma design library</h3>
-      <p>Connect a Figma account (read-only) and pick the design library file to expose to agents via the CMC Build Kit MCP.</p>
       <div id="figma-connected" class="hidden">
         <p id="figma-info" style="margin-bottom:8px"></p>
-        <div id="figma-verify" style="margin-bottom:12px;display:none">
+        <div id="figma-verify" style="margin-top:8px;display:none">
           <span class="status" id="figma-verify-status"><span class="dot"></span><span id="figma-verify-text">Verifying…</span></span>
           <p id="figma-verify-detail" style="margin-top:6px;font-size:13px;color:var(--muted)"></p>
         </div>
       </div>
       <div id="figma-not-connected" class="hidden">
+        <p style="margin-bottom:12px">Connect a Figma source to expose the design library to agents.</p>
         <button id="btn-figma-connect">Connect with OAuth</button>
         <p id="figma-err" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
         <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
