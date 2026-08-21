@@ -56,6 +56,17 @@
   code { background: var(--primary1); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--primary2); }
   pre { background: var(--secondary2); color: #E6E9F0; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-x: auto; font-size: 13px; margin: 12px 0; white-space: pre-wrap; word-break: break-word; }
   pre code { background: none; padding: 0; color: inherit; }
+  .codewindow { background: var(--secondary2); border: 1px solid var(--outline4); border-radius: var(--radius); overflow: hidden; margin: 12px 0; }
+  .codewindow .bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--secondary3); border-bottom: 1px solid var(--outline4); }
+  .codewindow .bar .dots { display: flex; gap: 6px; margin-right: 8px; }
+  .codewindow .bar .dots i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .codewindow .bar .dots i:nth-child(1) { background: #FF5F57; }
+  .codewindow .bar .dots i:nth-child(2) { background: #FEBC2E; }
+  .codewindow .bar .dots i:nth-child(3) { background: #28C840; }
+  .codewindow .bar .filename { color: #E6E9F0; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: 0.9; }
+  .codewindow .bar .copy { margin-left: auto; background: none; border: none; color: #E6E9F0; font-size: 12px; padding: 4px 10px; cursor: pointer; opacity: 0.8; }
+  .codewindow .bar .copy:hover { opacity: 1; }
+  .codewindow .body { padding: 16px; overflow-x: auto; font-size: 13px; color: #E6E9F0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
@@ -99,7 +110,7 @@
 
     <div class="card">
       <h3>Connect your agent</h3>
-      <p>Choose your agent below, then copy the config and add it. Both servers appear as tools in the same chat.</p>
+      <p>Choose your agent below, then copy the config and add it. The design-system MCP gives your agent everything — design library, components, specs, and rules.</p>
       <label for="agent-select">Agent</label>
       <select id="agent-select">
         <option value="chatgpt-codex" selected>ChatGPT / Codex</option>
@@ -108,14 +119,16 @@
         <option value="vscode">VS Code</option>
         <option value="deepseek">DeepSeek</option>
       </select>
-      <div class="codehead">
-        <span id="agent-hint" style="font-size:13px;color:var(--muted)"></span>
-        <span>
-          <button id="btn-copy" class="secondary">Copy config</button>
-          <span id="copied" class="copied hidden">Copied!</span>
-        </span>
+      <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:8px"></p>
+      <div class="codewindow">
+        <div class="bar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="filename">mcp.json</span>
+          <button class="copy" id="btn-copy">Copy config</button>
+        </div>
+        <div class="body" id="agent-code"></div>
       </div>
-      <pre><code id="agent-code"></code></pre>
+      <span id="copied" class="copied hidden">Copied!</span>
     </div>
 
     <div class="card hidden">
