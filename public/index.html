@@ -379,7 +379,7 @@ async function refreshFigma() {
     if (d.connected) {
       notConnected.classList.add("hidden");
       connected.classList.remove("hidden");
-      document.getElementById("figma-info").textContent = `Connected as ${d.userName}${d.fileName ? ` · Library: ${d.fileName}` : " · no library picked yet"}`;
+      document.getElementById("figma-info").textContent = `Connected as ${d.userName} · Library: ${d.fileName || d.fileKey || "not picked yet"}`;
     } else {
       connected.classList.add("hidden");
       notConnected.classList.remove("hidden");
