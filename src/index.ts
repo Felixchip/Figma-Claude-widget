@@ -412,6 +412,33 @@ app.post("/api/figma/disconnect", async (_req, res) => {
   res.json({ ok: true });
 });
 
+app.post("/api/figma/verify", async (_req, res) => {
+  const db = await store.getFigmaSettings();
+  const token = db?.token || figmaEnvToken();
+  const fileKey = db?.fileKey || figmaEnvFileKey() || "";
+  if (!token) {
+    res.status(400).json({ connected: false, error: "Figma is not connected." });
+    return;
+  }
+  if (!fileKey) {
+    res.status(400).json({ connected: false, error: "No design library file selected." });
+    return;
+  }
+  try {
+    const [me, file] = await Promise.all([figmaMe(token), figmaFile(token, fileKey)]);
+    res.json({
+      connected: true,
+      userName: me.handle ?? me.email ?? "Figma user",
+      fileName: file.name ?? "Untitled",
+      fileKey,
+      pages: (file.document?.children ?? []).map((p: any) => p.name),
+      lastModified: file.lastModified,
+    });
+  } catch (err) {
+    res.status(400).json({ connected: false, error: (err as Error).message });
+  }
+});
+
 // --- Specs REST ------------------------------------------------------------
 
 app.post("/api/specs", async (req, res) => {

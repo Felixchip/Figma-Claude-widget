@@ -139,6 +139,10 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
       </div>
       <div id="figma-connected" class="hidden">
         <p id="figma-info" style="margin-bottom:8px"></p>
+        <div id="figma-verify" style="margin-bottom:12px;display:none">
+          <span class="status" id="figma-verify-status"><span class="dot"></span><span id="figma-verify-text">Verifying…</span></span>
+          <p id="figma-verify-detail" style="margin-top:6px;font-size:13px;color:var(--muted)"></p>
+        </div>
         <label for="figma-file-url">Design library file URL</label>
         <div class="toolbar">
           <input type="text" id="figma-file-url" placeholder="https://www.figma.com/design/XXXX/My-Design-Library" style="flex:1">
@@ -147,6 +151,7 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
         <p id="figma-pick-status" style="margin-top:8px;font-size:13px"></p>
         <div class="toolbar" style="margin-top:8px">
           <button id="btn-figma-disconnect" class="secondary">Disconnect</button>
+          <button id="btn-figma-verify" class="secondary">Verify connection</button>
         </div>
       </div>
       <div id="figma-not-connected" class="hidden">
@@ -370,6 +375,34 @@ document.getElementById("btn-copy-idea").addEventListener("click", () => {
 });
 
 // figma settings
+async function verifyFigma() {
+  const v = document.getElementById("figma-verify");
+  v.style.display = "block";
+  const status = document.getElementById("figma-verify-status");
+  const text = document.getElementById("figma-verify-text");
+  const detail = document.getElementById("figma-verify-detail");
+  status.classList.remove("off");
+  text.textContent = "Verifying…";
+  detail.textContent = "";
+  try {
+    const r = await fetch(mcpUrl + "/api/figma/verify", { method: "POST" });
+    const d = await r.json();
+    if (d.connected) {
+      status.classList.remove("off");
+      text.textContent = `Connected to Figma library "${d.fileName}"`;
+      detail.textContent = `File key ${d.fileKey} · ${d.pages.length} pages · modified ${new Date(d.lastModified).toLocaleString()} · as ${d.userName}`;
+    } else {
+      status.classList.add("off");
+      text.textContent = "Connection failed";
+      detail.textContent = d.error || "Could not reach Figma.";
+    }
+  } catch (e) {
+    status.classList.add("off");
+    text.textContent = "Connection failed";
+    detail.textContent = "Request error: " + e.message;
+  }
+}
+
 async function refreshFigma() {
   try {
     const r = await fetch(mcpUrl + "/api/figma/status");
@@ -380,6 +413,7 @@ async function refreshFigma() {
       notConnected.classList.add("hidden");
       connected.classList.remove("hidden");
       document.getElementById("figma-info").textContent = `Connected as ${d.userName} · Library: ${d.fileName || d.fileKey || "not picked yet"}`;
+      verifyFigma();
     } else {
       connected.classList.add("hidden");
       notConnected.classList.remove("hidden");
@@ -433,6 +467,7 @@ document.getElementById("btn-figma-disconnect").addEventListener("click", async 
   await fetch(mcpUrl + "/api/figma/disconnect", { method: "POST" });
   refreshFigma();
 });
+document.getElementById("btn-figma-verify").addEventListener("click", verifyFigma);
 
 // handle OAuth callback query param
 if (new URLSearchParams(window.location.search).get("figma") === "connected") {
