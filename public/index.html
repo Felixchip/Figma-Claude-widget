@@ -43,6 +43,8 @@
   header { padding: 20px 32px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; background: var(--content1); z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04); }
   header h1 { font-size: 16px; font-weight: 600; } /* GSATypography.labelOne */
   header .logo { height: 28px; width: auto; display: block; }
+  header .brand-divider { color: var(--border); font-size: 20px; font-weight: 300; }
+  header .brand-sub { font-size: 16px; font-weight: 600; color: var(--text); }
   nav { display: flex; gap: 4px; margin-left: auto; }
   nav a { color: var(--muted); text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: var(--radius-pill); }
   nav a:hover, nav a.active { color: var(--primary3); background: var(--primary1); }
@@ -101,6 +103,8 @@
 <body>
 <header>
   <img src="/CMC logo.svg" alt="CMC" class="logo">
+  <span class="brand-divider">|</span>
+  <span class="brand-sub">Build kit</span>
   <nav>
     <a href="#overview" class="active">Overview</a>
     <a href="#settings">Settings</a>
