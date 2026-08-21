@@ -23,6 +23,22 @@ async function resolveFigma(store: SpecStore) {
   };
 }
 
+export async function resolveFigmaWithName(store: SpecStore): Promise<{ token: string; fileKey: string; userName: string; fileName: string }> {
+  const s = await resolveFigma(store);
+  if (s.token && s.fileKey && !s.fileName) {
+    try {
+      const file = await figmaFile(s.token, s.fileKey);
+      if (file.name) {
+        s.fileName = file.name;
+        await store.updateFigmaFileName(file.name);
+      }
+    } catch {
+      // ignore — fall back to fileKey display
+    }
+  }
+  return s;
+}
+
 export async function getFigmaLibrary(store: SpecStore): Promise<ToolResult> {
   const s = await resolveFigma(store);
   if (!s.token) return { text: "Figma is not connected. Ask an admin to connect it in the CMC Build Kit web UI.", isError: true };

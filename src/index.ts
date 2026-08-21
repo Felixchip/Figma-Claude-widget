@@ -35,6 +35,7 @@ import {
   getFigmaComponent,
   getFigmaTokens,
   figmaConnected,
+  resolveFigmaWithName,
   FIGMA_TOOL_DEFS,
 } from "./figmaTools.js";
 
@@ -306,14 +307,8 @@ app.get("/api/status", async (_req, res) => {
   const figma = await figmaConnected(store);
   const figmaStatus = figma
     ? (async () => {
-        const db = await store.getFigmaSettings();
-        const envToken = figmaEnvToken();
-        return {
-          connected: true,
-          userName: db?.userName || (envToken ? "FIGMA_PAT (env)" : ""),
-          fileName: db?.fileName || "",
-          fileKey: db?.fileKey || figmaEnvFileKey() || "",
-        };
+        const s = await resolveFigmaWithName(store);
+        return { connected: true, userName: s.userName, fileName: s.fileName, fileKey: s.fileKey };
       })()
     : { connected: false };
   res.json({
@@ -426,11 +421,12 @@ app.get("/api/figma/status", async (_req, res) => {
     res.json({ connected: false, configured: !!figmaOAuthConfig(), envConfigured: !!envToken });
     return;
   }
+  const s = await resolveFigmaWithName(store);
   res.json({
     connected: true,
-    userName: db?.userName || (envToken ? "FIGMA_PAT (env)" : ""),
-    fileName: db?.fileName || "",
-    fileKey: db?.fileKey || figmaEnvFileKey() || "",
+    userName: s.userName,
+    fileName: s.fileName,
+    fileKey: s.fileKey,
     configured: true,
     viaEnv: !!envToken,
   });

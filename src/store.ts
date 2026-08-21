@@ -34,6 +34,7 @@ export interface SpecStore {
   create(spec: Spec): Promise<Spec>;
   getFigmaSettings(): Promise<FigmaSettings | undefined>;
   saveFigmaSettings(s: FigmaSettings): Promise<void>;
+  updateFigmaFileName(fileName: string): Promise<void>;
   clearFigmaSettings(): Promise<void>;
 }
 
@@ -128,6 +129,10 @@ class PostgresStore implements SpecStore {
     }
   }
 
+  async updateFigmaFileName(fileName: string): Promise<void> {
+    await this.setSetting("figma_file_name", fileName);
+  }
+
   async list(): Promise<SpecRow[]> {
     const res = await this.pool.query(
       "SELECT id, node_id, updated_at FROM specs ORDER BY updated_at DESC"
@@ -214,6 +219,10 @@ class MemoryStore implements SpecStore {
     for (const key of ["figma_token", "figma_file_key", "figma_file_name", "figma_user_name", "figma_connected_at"]) {
       this.settings.delete(key);
     }
+  }
+
+  async updateFigmaFileName(fileName: string): Promise<void> {
+    this.settings.set("figma_file_name", fileName);
   }
 }
 
