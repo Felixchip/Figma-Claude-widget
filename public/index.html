@@ -248,8 +248,11 @@ async function checkStatus() {
     const d = await r.json();
     const st = document.getElementById("status");
     st.classList.toggle("off", !d.configured);
-    document.getElementById("status-text").textContent = d.configured
-      ? `Server ready · repo ${d.repo}`
+    let parts = [];
+    if (d.configured) parts.push(`repo ${d.repo}`);
+    if (d.figma?.connected) parts.push(`Figma: ${d.figma.fileName || d.figma.fileKey || "connected"}`);
+    document.getElementById("status-text").textContent = parts.length
+      ? `Server ready · ${parts.join(" · ")}`
       : `Server up, but no repo configured (set GITHUB_REPO)`;
     if (d.repo) document.getElementById("repo-label").innerHTML = `Repo: <em>${d.repo}</em>`;
   } catch (e) {

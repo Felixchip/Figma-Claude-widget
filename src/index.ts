@@ -304,16 +304,25 @@ app.get("/health", (_req, res) => {
 
 app.get("/api/status", async (_req, res) => {
   const figma = await figmaConnected(store);
+  const figmaStatus = figma
+    ? (async () => {
+        const db = await store.getFigmaSettings();
+        const envToken = figmaEnvToken();
+        return {
+          connected: true,
+          userName: db?.userName || (envToken ? "FIGMA_PAT (env)" : ""),
+          fileName: db?.fileName || "",
+          fileKey: db?.fileKey || figmaEnvFileKey() || "",
+        };
+      })()
+    : { connected: false };
   res.json({
     configured: configReady(githubCfg),
     repo: githubCfg.owner && githubCfg.repo ? `${githubCfg.owner}/${githubCfg.repo}` : null,
     githubTools: Object.keys(GITHUB_TOOL_DEFS),
     specTools: ["list_specs", "get_spec"],
     rules: "design://rules (list_rules tool)",
-    figma: figma ? await (async () => {
-      const s = await store.getFigmaSettings();
-      return { connected: true, userName: s?.userName, fileName: s?.fileName };
-    })() : { connected: false },
+    figma: await figmaStatus,
     figmaTools: Object.keys(FIGMA_TOOL_DEFS),
   });
 });
