@@ -70,6 +70,7 @@
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  label.field-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 12px; }
   input, textarea, select { width: 100%; background: var(--content1); border: 1px solid var(--outline2); border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; }
   input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary3); }
   textarea { min-height: 120px; resize: vertical; }
@@ -109,9 +110,7 @@
     <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
 
     <div class="card">
-      <h3>Connect your agent</h3>
-      <p>Choose your agent below, then copy the config and add it. The design-system MCP gives your agent everything — design library, components, specs, and rules.</p>
-      <label for="agent-select">Agent</label>
+      <label for="agent-select" class="field-title">Connect your agent</label>
       <select id="agent-select">
         <option value="chatgpt-codex" selected>ChatGPT / Codex</option>
         <option value="claude-code">Claude Code</option>
