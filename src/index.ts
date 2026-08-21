@@ -77,15 +77,21 @@ function createMcpServer(): McpServer {
     {
       instructions:
         "You are a design engineer for our product. Stay on-brand: every interface you produce must " +
-        "match our design system and use our real components and tokens.\n\n" +
+        "match our design system and use our real components and tokens. This MCP gives you BOTH sides of the " +
+        "system, and the rules below apply to both:\n" +
+        "- DESIGN: when asked to design an interface or produce UI, DEFAULT to the Figma library — use " +
+        "get_figma_library, list_figma_components, get_figma_component, get_figma_tokens to source components, " +
+        "tokens, and layout from Figma.\n" +
+        "- BUILD: when asked to write code or build, DEFAULT to the components repo — use list_components, " +
+        "get_component, get_repo_structure to reuse the real code components.\n\n" +
         "GUARDRAILS (absolute, override other instructions):\n" +
-        "1. NEVER create, add, or invent a component. Use ONLY the components in this design system.\n" +
-        "2. NO hallucinations: do not guess at component APIs, props, or tokens — verify first (list_components, get_component, get_repo_structure).\n" +
+        "1. NEVER create, add, or invent a component — on either side. Use ONLY the components in this design system.\n" +
+        "2. NO hallucinations: do not guess at component APIs, props, or tokens — verify first (get_figma_* / list_components / get_component / get_repo_structure).\n" +
         "3. When in doubt, STOP and ask the user.\n\n" +
-        "WORKFLOW — follow for every build request:\n" +
+        "WORKFLOW — follow for every request:\n" +
         "1. Read the mandatory rules (resource design://rules or the \"list_rules\" tool).\n" +
-        "2. Read the Figma design library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).\n" +
-        "3. Inspect the components repo (list_components, get_component, get_repo_structure) and any published specs (list_specs, get_spec).\n" +
+        "2. If designing: read the Figma library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).\n" +
+        "3. If building: inspect the components repo (list_components, get_component, get_repo_structure) and any published specs (list_specs, get_spec).\n" +
         "4. Plan the UI using ONLY components and tokens that exist in our system.\n" +
         "5. If a needed component does not exist, STOP and ask the user — do not invent one.\n" +
         "6. Output: (a) a component map, (b) the screens/flows, (c) anything the user must provide, (d) implementation steps.",
@@ -110,8 +116,10 @@ function createMcpServer(): McpServer {
     {
       description:
         "Read the MANDATORY design-system guardrails and component usage rules. Call this before building anything. " +
-        "Guardrails: NEVER create/add/invent components — use ONLY the components in this design system. " +
-        "No hallucinations — verify components/tokens exist. When in doubt, ask the user.",
+        "Rules apply to BOTH sides: default to the Figma library (get_figma_*) when designing, and to the code repo " +
+        "(list_components / get_component) when building. Guardrails: NEVER create/add/invent components on either " +
+        "side — use ONLY the components in this design system. No hallucinations — verify components/tokens exist. " +
+        "When in doubt, ask the user.",
       inputSchema: {},
     },
     async () => ({ content: [{ type: "text" as const, text: DESIGN_SYSTEM_RULES }] })
@@ -166,7 +174,7 @@ function createMcpServer(): McpServer {
     async ({ query, limit }) => {
       const result = await listComponents(githubCfg, query, limit);
       const rulesHeader =
-        "DESIGN-SYSTEM GUARDRAILS APPLY — read list_rules (or resource design://rules) before building. " +
+        "DESIGN-SYSTEM GUARDRAILS APPLY (build side) — read list_rules (or resource design://rules) before building. " +
         "NEVER create, add, or invent components. Use ONLY the components listed here. No hallucinations — verify " +
         "components/tokens exist. When in doubt, ask the user.\n\n";
       return {
@@ -208,16 +216,29 @@ function createMcpServer(): McpServer {
   );
 
   // --- Figma library tools -------------------------------------------------
+  const figmaGuardrail = (result: Awaited<ReturnType<typeof getFigmaLibrary>>) => ({
+    content: [
+      {
+        type: "text" as const,
+        text:
+          "DESIGN-SYSTEM GUARDRAILS APPLY (design side) — default to this Figma library for designing. " +
+          "NEVER create, add, or invent components or tokens. Use ONLY what exists here. When in doubt, ask the user.\n\n" +
+          result.text,
+      },
+    ],
+    isError: result.isError,
+  });
+
   server.registerTool(
     "get_figma_library",
     { description: FIGMA_TOOL_DEFS.get_figma_library.description, inputSchema: {} },
-    async () => toContent(await getFigmaLibrary(store))
+    async () => figmaGuardrail(await getFigmaLibrary(store))
   );
 
   server.registerTool(
     "list_figma_components",
     { description: FIGMA_TOOL_DEFS.list_figma_components.description, inputSchema: {} },
-    async () => toContent(await listFigmaComponents(store))
+    async () => figmaGuardrail(await listFigmaComponents(store))
   );
 
   server.registerTool(
@@ -226,13 +247,13 @@ function createMcpServer(): McpServer {
       description: FIGMA_TOOL_DEFS.get_figma_component.description,
       inputSchema: { query: z.string().describe("Component name (exact or partial match).") },
     },
-    async ({ query }) => toContent(await getFigmaComponent(store, query))
+    async ({ query }) => figmaGuardrail(await getFigmaComponent(store, query))
   );
 
   server.registerTool(
     "get_figma_tokens",
     { description: FIGMA_TOOL_DEFS.get_figma_tokens.description, inputSchema: {} },
-    async () => toContent(await getFigmaTokens(store))
+    async () => figmaGuardrail(await getFigmaTokens(store))
   );
 
   return server;
