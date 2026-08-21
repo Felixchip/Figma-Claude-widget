@@ -568,7 +568,13 @@ app.delete("/mcp", async (req, res) => {
 
 // --- Web UI -----------------------------------------------------------------
 
-app.use(express.static(PUBLIC_DIR));
+app.use(express.static(PUBLIC_DIR, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith("index.html")) {
+      res.setHeader("Cache-Control", "no-store");
+    }
+  },
+}));
 
 // --- Boot -------------------------------------------------------------------
 
