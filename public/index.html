@@ -140,10 +140,6 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
           <span class="status" id="figma-verify-status"><span class="dot"></span><span id="figma-verify-text">Verifying…</span></span>
           <p id="figma-verify-detail" style="margin-top:6px;font-size:13px;color:var(--muted)"></p>
         </div>
-        <div class="toolbar" style="margin-top:8px">
-          <button id="btn-figma-disconnect" class="secondary">Disconnect</button>
-          <button id="btn-figma-verify" class="secondary">Verify connection</button>
-        </div>
       </div>
       <div id="figma-not-connected" class="hidden">
         <button id="btn-figma-connect">Connect with OAuth</button>
@@ -386,11 +382,6 @@ document.getElementById("btn-figma-pat").addEventListener("click", async () => {
     st.textContent = "Request failed: " + e.message;
   }
 });
-document.getElementById("btn-figma-disconnect").addEventListener("click", async () => {
-  await fetch(mcpUrl + "/api/figma/disconnect", { method: "POST" });
-  refreshFigma();
-});
-document.getElementById("btn-figma-verify").addEventListener("click", verifyFigma);
 
 // handle OAuth callback query param
 if (new URLSearchParams(window.location.search).get("figma") === "connected") {
