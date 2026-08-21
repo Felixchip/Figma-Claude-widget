@@ -33,7 +33,7 @@ export async function resolveFigmaWithName(store: SpecStore): Promise<{ token: s
         await store.updateFigmaFileName(file.name);
       }
     } catch {
-      // ignore — fall back to fileKey display
+      // ignore, fall back to fileKey display
     }
   }
   return s;

@@ -231,6 +231,6 @@ export function createStore(): SpecStore {
     console.log("Using Postgres store");
     return new PostgresStore(process.env.DATABASE_URL);
   }
-  console.log("DATABASE_URL not set — using in-memory store");
+  console.log("DATABASE_URL not set, using in-memory store");
   return new MemoryStore();
 }

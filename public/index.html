@@ -105,8 +105,8 @@
 
 <main>
   <section id="overview">
-    <h2>Design on-brand with your agents</h2>
-    <p>Design, build, and brainstorm your ideas with your preferred agent — ChatGPT, Claude, DeepSeek, or any MCP-capable agent — while staying on-brand with the CMCMarkets brand and components.</p>
+    <h2>Design, build, and brainstorm on-brand</h2>
+    <p>Design, build, and brainstorm your ideas with your preferred agent, ChatGPT, Claude, DeepSeek, or any MCP-capable agent, while staying on-brand with the CMCMarkets brand and components.</p>
     <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
 
     <div class="card">
@@ -170,7 +170,7 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
     <div class="card">
       <h3>CMC Build Kit (this server)</h3>
       <p id="repo-label">Repo: <em>not configured</em></p>
-      <p>One MCP endpoint for everything: your Figma design library, your product specs, your code components repo, and the mandatory design rules — so agents reuse real components instead of inventing them.</p>
+      <p>One MCP endpoint for everything: your Figma design library, your product specs, your code components repo, and the mandatory design rules, so agents reuse real components instead of inventing them.</p>
       <p class="pill">get_figma_library</p><p class="pill">list_figma_components</p><p class="pill">get_figma_component</p><p class="pill">get_figma_tokens</p><p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
     </div>
   </section>
@@ -292,7 +292,7 @@ document.getElementById("btn-prompt").addEventListener("click", () => {
 
 IDEA: ${idea || "(your idea here)"}
 
-GUARDRAILS — these are absolute:
+GUARDRAILS, these are absolute:
 1. NEVER create, add, or invent a component. Use ONLY the components in the design system.
 2. NO hallucinations: verify components and tokens exist before using them.
 3. When in doubt, ask the user.
@@ -302,7 +302,7 @@ WORKFLOW:
 2. Read the Figma design library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).
 3. Inspect our components repo (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
 4. Plan the UI using ONLY components and tokens that exist in our system.
-5. If a needed component does not exist, STOP and ask the user — do not invent one.
+5. If a needed component does not exist, STOP and ask the user, do not invent one.
 6. Output: (a) a component map, (b) the screens/flows, (c) anything the user needs to provide, (d) rough implementation steps for an agent.
 
 Connect the design-system MCP before running this.`;
