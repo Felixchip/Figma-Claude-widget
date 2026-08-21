@@ -48,6 +48,9 @@
   h2 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   h3 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; } /* labelOne */
   p { color: var(--muted); margin-bottom: 12px; }
+  #overview h2 { margin-top: 0; }
+  #overview > p { max-width: 640px; margin-bottom: 20px; }
+  #overview .status { margin-bottom: 24px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin: 16px 0; }
   .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: var(--radius-pill); font-size: 13px; border: 1px solid var(--border); background: var(--panel); }
   .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
@@ -354,7 +357,7 @@ async function refreshFigma() {
     if (d.connected) {
       notConnected.classList.add("hidden");
       connected.classList.remove("hidden");
-      document.getElementById("figma-info").textContent = `Connected as ${d.userName} · Library: ${d.fileName || d.fileKey || "not picked yet"}`;
+      document.getElementById("figma-info").textContent = `Library: ${d.fileName || d.fileKey || "not picked yet"}`;
       verifyFigma();
     } else {
       connected.classList.add("hidden");
