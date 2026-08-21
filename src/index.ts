@@ -84,7 +84,7 @@ function createMcpServer(): McpServer {
         "3. When in doubt, STOP and ask the user.\n\n" +
         "WORKFLOW — follow for every build request:\n" +
         "1. Read the mandatory rules (resource design://rules or the \"list_rules\" tool).\n" +
-        "2. Read the design with the Figma MCP (get_design_context, get_variable_defs).\n" +
+        "2. Read the Figma design library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).\n" +
         "3. Inspect the components repo (list_components, get_component, get_repo_structure) and any published specs (list_specs, get_spec).\n" +
         "4. Plan the UI using ONLY components and tokens that exist in our system.\n" +
         "5. If a needed component does not exist, STOP and ask the user — do not invent one.\n" +

@@ -120,9 +120,10 @@
 
     <div class="card hidden">
       <h3>Recommended prompt</h3>
-      <pre><code>Use the Figma MCP (get_design_context + get_variable_defs) to read the design,
-and the design-system MCP (list_rules, list_components, get_component, list_specs,
-get_spec) to follow the mandatory rules, pick components, and read product specs.
+      <pre><code>Use the design-system MCP (list_rules, get_figma_library, list_figma_components,
+get_figma_component, get_figma_tokens, list_components, get_component, list_specs,
+get_spec) to follow the mandatory rules, read the Figma design library and tokens,
+pick components, and read product specs.
 Build the UI using ONLY the components in our design system. Stay on-brand.</code></pre>
     </div>
   </section>
@@ -155,12 +156,6 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
     </div>
 
     <div class="card">
-      <h3>Figma MCP (official)</h3>
-      <p>Design system context: components, variables, styles, layouts straight from your Figma files.</p>
-      <p><code>https://mcp.figma.com/mcp</code></p>
-      <p class="pill">Hosted by Figma</p><p class="pill">OAuth with your Figma account</p><p class="pill">get_design_context</p><p class="pill">get_variable_defs</p>
-    </div>
-    <div class="card">
       <h3>CMC Build Kit (this server)</h3>
       <p id="repo-label">Repo: <em>not configured</em></p>
       <p>One MCP endpoint for everything: your Figma design library, your product specs, your code components repo, and the mandatory design rules — so agents reuse real components instead of inventing them.</p>
@@ -187,7 +182,6 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
 const url = new URL(window.location.href);
 const mcpUrl = url.origin;
 const serverUrl = mcpUrl + "/mcp";
-const figmaUrl = "https://mcp.figma.com/mcp";
 
 const AGENTS = {
   "chatgpt-codex": {
@@ -195,39 +189,35 @@ const AGENTS = {
     hint: "ChatGPT: Settings → Connections → Add MCP server. Codex: add to your mcp config.",
     code: `{
   "mcpServers": {
-    "figma":          { "url": "${figmaUrl}" },
-    "design-system":  { "url": "${serverUrl}" }
+    "design-system": { "url": "${serverUrl}" }
   }
 }`
   },
   "claude-code": {
     label: "Claude Code",
-    hint: "Run these commands in your terminal.",
-    code: `claude mcp add --transport http figma ${figmaUrl}
-claude mcp add --transport http design-system ${serverUrl}`
+    hint: "Run this command in your terminal.",
+    code: `claude mcp add --transport http design-system ${serverUrl}`
   },
   "cursor": {
     label: "Cursor",
     hint: "Cursor Settings → MCP → + Add new global MCP server.",
     code: `{
   "mcpServers": {
-    "figma":          { "url": "${figmaUrl}" },
-    "design-system":  { "url": "${serverUrl}" }
+    "design-system": { "url": "${serverUrl}" }
   }
 }`
   },
   "vscode": {
     label: "VS Code",
-    hint: "Use MCP: Add Server → HTTP, then enter these URLs.",
-    code: `${figmaUrl}\n${serverUrl}`
+    hint: "Use MCP: Add Server → HTTP, then enter this URL.",
+    code: `${serverUrl}`
   },
   "deepseek": {
     label: "DeepSeek",
     hint: "Add to your MCP-compatible client (e.g. Cline, Continue).",
     code: `{
   "mcpServers": {
-    "figma":          { "url": "${figmaUrl}" },
-    "design-system":  { "url": "${serverUrl}" }
+    "design-system": { "url": "${serverUrl}" }
   }
 }`
   }
@@ -293,14 +283,14 @@ GUARDRAILS — these are absolute:
 3. When in doubt, ask the user.
 
 WORKFLOW:
-1. Read the design system with the Figma MCP (get_design_context, get_variable_defs) for the relevant file.
-2. Follow the design-system MCP rules (list_rules).
+1. Follow the design-system MCP rules (list_rules).
+2. Read the Figma design library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).
 3. Inspect our components repo (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
 4. Plan the UI using ONLY components and tokens that exist in our system.
 5. If a needed component does not exist, STOP and ask the user — do not invent one.
 6. Output: (a) a component map, (b) the screens/flows, (c) anything the user needs to provide, (d) rough implementation steps for an agent.
 
-Connect both MCP servers (figma, design-system) before running this.`;
+Connect the design-system MCP before running this.`;
   const out = document.getElementById("prompt-out");
   out.textContent = prompt;
   out.classList.remove("hidden");
