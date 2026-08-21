@@ -56,7 +56,7 @@
   code { background: var(--primary1); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--primary2); }
   pre { background: var(--secondary2); color: #E6E9F0; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-x: auto; font-size: 13px; margin: 12px 0; white-space: pre-wrap; word-break: break-word; }
   pre code { background: none; padding: 0; color: inherit; }
-  .codewindow { background: var(--secondary2); border: 1px solid var(--outline4); border-radius: var(--radius); overflow: hidden; margin: 12px 0; }
+  .codewindow { background: var(--secondary2); border: 1px solid var(--outline4); border-radius: var(--radius); overflow: hidden; margin: 0; }
   .codewindow .bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--secondary3); border-bottom: 1px solid var(--outline4); }
   .codewindow .bar .dots { display: flex; gap: 6px; margin-right: 8px; }
   .codewindow .bar .dots i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
@@ -70,7 +70,7 @@
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
-  label.field-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 12px; }
+  label.field-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
   input, textarea, select { width: 100%; background: var(--content1); border: 1px solid var(--outline2); border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; }
   input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary3); }
   textarea { min-height: 120px; resize: vertical; }
@@ -118,7 +118,8 @@
         <option value="vscode">VS Code</option>
         <option value="deepseek">DeepSeek</option>
       </select>
-      <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:8px"></p>
+      <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:16px"></p>
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px">
       <div class="codewindow">
         <div class="bar">
           <span class="dots"><i></i><i></i><i></i></span>
