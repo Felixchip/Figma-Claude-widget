@@ -35,7 +35,6 @@ import {
   getFigmaComponent,
   getFigmaTokens,
   figmaConnected,
-  verifyFigmaConnection,
   FIGMA_TOOL_DEFS,
 } from "./figmaTools.js";
 

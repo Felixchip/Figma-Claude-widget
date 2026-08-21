@@ -4,7 +4,6 @@ import {
   extractVariables,
   figmaFile,
   figmaFileVariables,
-  figmaMe,
   figmaEnvToken,
   figmaEnvFileKey,
 } from "./figma.js";
@@ -94,23 +93,6 @@ export async function getFigmaTokens(store: SpecStore): Promise<ToolResult> {
 export async function figmaConnected(store: SpecStore): Promise<boolean> {
   const s = await resolveFigma(store);
   return !!(s.token && s.fileKey);
-}
-
-export async function figmaStatus(store: SpecStore): Promise<{ connected: boolean; userName?: string; fileName?: string }> {
-  const s = await resolveFigma(store);
-  if (!s.token) return { connected: false };
-  return { connected: true, userName: s.userName, fileName: s.fileName };
-}
-
-export async function verifyFigmaConnection(store: SpecStore): Promise<ToolResult> {
-  const s = await resolveFigma(store);
-  if (!s.token) return { text: "Figma is not connected.", isError: true };
-  try {
-    const me = await figmaMe(s.token);
-    return { text: JSON.stringify({ handle: me.handle, email: me.email }, null, 2) };
-  } catch (err) {
-    return { text: `Error: ${(err as Error).message}`, isError: true };
-  }
 }
 
 export const FIGMA_TOOL_DEFS: Record<string, { description: string }> = {

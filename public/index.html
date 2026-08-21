@@ -172,24 +172,6 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
     </div>
   </section>
 
-  <section id="playground" class="hidden">
-    <h2>Playground</h2>
-    <p>Try the GitHub components tools directly from here.</p>
-    <div class="card">
-      <div class="toolbar">
-        <button data-tool="overview">Repo overview</button>
-        <button data-tool="components">List components</button>
-        <button data-tool="structure">Repo structure</button>
-        <button data-tool="rules">List rules</button>
-        <input type="text" id="pg-query" placeholder="filter / search…" style="width:220px">
-        <input type="text" id="pg-path" placeholder="src/components/Button.tsx" style="width:260px">
-        <button data-tool="get">Get component</button>
-        <button data-tool="search">Search</button>
-      </div>
-      <div id="log" style="margin-top:12px"></div>
-    </div>
-  </section>
-
   <section id="brainstorm" class="hidden">
     <h2>Brainstorm on-brand</h2>
     <p>Describe an idea and get a plan grounded in your design system and components.</p>
@@ -302,38 +284,6 @@ document.querySelectorAll("nav a").forEach(a => {
 });
 
 // playground
-const log = document.getElementById("log");
-function logMsg(text, cls) {
-  const div = document.createElement("div");
-  div.className = cls || "";
-  div.textContent = text;
-  log.prepend(div);
-}
-async function callTool(name, args) {
-  try {
-    const r = await fetch(mcpUrl + "/api/tools/" + name, {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(args || {})
-    });
-    const d = await r.json();
-    if (d.error) logMsg("✖ " + d.error, "err");
-    else logMsg(JSON.stringify(d.result, null, 2).slice(0, 4000), "ok");
-  } catch (e) {
-    logMsg("✖ " + e.message, "err");
-  }
-}
-document.querySelectorAll("[data-tool]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const t = btn.dataset.tool;
-    if (t === "overview") callTool("get_repo_overview");
-    if (t === "components") callTool("list_components", { query: document.getElementById("pg-query").value || undefined });
-    if (t === "structure") callTool("get_repo_structure");
-    if (t === "rules") callTool("list_rules");
-    if (t === "get") callTool("get_component", { path: document.getElementById("pg-path").value || "src/components/Button.tsx" });
-    if (t === "search") callTool("search_components", { query: document.getElementById("pg-query").value || "button" });
-  });
-});
-
 // brainstorm
 document.getElementById("btn-prompt").addEventListener("click", () => {
   const idea = document.getElementById("idea").value.trim();
