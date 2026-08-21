@@ -51,7 +51,7 @@ export async function exchangeFigmaCode(cfg: FigmaOAuthConfig, code: string): Pr
 
 async function figmaFetch(token: string, path: string): Promise<any> {
   const res = await fetch(`${FIGMA_API}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { "X-Figma-Token": token },
   });
   if (!res.ok) {
     const body = await res.text();

@@ -150,8 +150,15 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
         </div>
       </div>
       <div id="figma-not-connected" class="hidden">
-        <button id="btn-figma-connect">Connect Figma</button>
+        <button id="btn-figma-connect">Connect with OAuth</button>
         <p id="figma-err" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+        <label for="figma-pat">Or paste a Figma personal access token</label>
+        <div class="toolbar">
+          <input type="password" id="figma-pat" placeholder="figd_xxxx…" style="flex:1">
+          <button id="btn-figma-pat">Connect</button>
+        </div>
+        <p id="figma-pat-status" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
       </div>
     </div>
 
@@ -384,6 +391,25 @@ async function refreshFigma() {
 }
 document.getElementById("btn-figma-connect").addEventListener("click", () => {
   window.location.href = mcpUrl + "/api/figma/oauth/start";
+});
+document.getElementById("btn-figma-pat").addEventListener("click", async () => {
+  const token = document.getElementById("figma-pat").value.trim();
+  const st = document.getElementById("figma-pat-status");
+  if (!token) { st.textContent = "Enter a Figma personal access token."; return; }
+  st.textContent = "Connecting…";
+  try {
+    const r = await fetch(mcpUrl + "/api/figma/pat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token })
+    });
+    const d = await r.json();
+    if (!r.ok) { st.textContent = d.error || "Failed to connect."; return; }
+    st.textContent = "";
+    document.getElementById("figma-pat").value = "";
+    refreshFigma();
+  } catch (e) {
+    st.textContent = "Request failed: " + e.message;
+  }
 });
 document.getElementById("btn-figma-pick").addEventListener("click", async () => {
   const url = document.getElementById("figma-file-url").value.trim();

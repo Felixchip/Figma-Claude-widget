@@ -365,6 +365,28 @@ app.post("/api/figma/library", async (req, res) => {
   }
 });
 
+app.post("/api/figma/pat", async (req, res) => {
+  const { token } = req.body ?? {};
+  const t = String(token ?? "").trim();
+  if (!t) {
+    res.status(400).json({ error: "Enter a Figma personal access token." });
+    return;
+  }
+  try {
+    const me = await figmaMe(t);
+    await store.saveFigmaSettings({
+      token: t,
+      fileKey: "",
+      fileName: "",
+      userName: me.handle ?? me.email ?? "Figma user",
+      connectedAt: new Date().toISOString(),
+    });
+    res.json({ ok: true, userName: me.handle ?? me.email ?? "Figma user" });
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
+
 app.get("/api/figma/status", async (_req, res) => {
   const s = await store.getFigmaSettings();
   if (!s?.token) {
