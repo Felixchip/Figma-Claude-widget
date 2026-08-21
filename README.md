@@ -1,4 +1,4 @@
-# Design System MCP
+# CMC Build Kit
 
 One MCP server + web UI that gives your agents (Claude, DeepSeek, ChatGPT) everything they need to design and build **on-brand** interfaces:
 
