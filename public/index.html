@@ -186,15 +186,15 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
 
   <section id="brainstorm" class="hidden">
     <h2>Brainstorm on-brand</h2>
-    <p>Describe an idea and get a plan grounded in your design system and components.</p>
+    <p>Describe an idea and get a build plan grounded in your design system and components.</p>
     <div class="card">
       <label for="idea">Your idea</label>
       <textarea id="idea" placeholder="e.g. A customer onboarding flow with a progress tracker, feature highlight cards, and a dark-mode settings screen…"></textarea>
-      <div class="toolbar">
-        <button id="btn-prompt">Copy agent prompt</button>
-        <button id="btn-copy-idea" class="secondary">Copy idea only</button>
+      <div class="toolbar" style="margin-top:12px">
+        <button id="btn-prompt">Generate agent prompt</button>
       </div>
       <pre id="prompt-out" class="hidden"></pre>
+      <p id="prompt-copied" class="hidden" style="color:var(--green);font-size:13px;margin-top:8px">Prompt copied to clipboard.</p>
     </div>
   </section>
 </main>
@@ -293,7 +293,6 @@ document.querySelectorAll("nav a").forEach(a => {
   });
 });
 
-// playground
 // brainstorm
 document.getElementById("btn-prompt").addEventListener("click", () => {
   const idea = document.getElementById("idea").value.trim();
@@ -319,10 +318,9 @@ Connect the design-system MCP before running this.`;
   out.textContent = prompt;
   out.classList.remove("hidden");
   navigator.clipboard.writeText(prompt);
-});
-document.getElementById("btn-copy-idea").addEventListener("click", () => {
-  const idea = document.getElementById("idea").value.trim();
-  navigator.clipboard?.writeText(idea);
+  const copied = document.getElementById("prompt-copied");
+  copied.classList.remove("hidden");
+  setTimeout(() => copied.classList.add("hidden"), 2000);
 });
 
 // figma settings
