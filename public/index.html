@@ -114,8 +114,8 @@
 
 <main>
   <section id="overview">
-    <h2>Design, build, and brainstorm on-brand</h2>
-    <p>Design, build, and brainstorm your ideas with your preferred agent, ChatGPT, Claude, DeepSeek, or any MCP-capable agent, while staying on-brand with the CMCMarkets brand and components.</p>
+    <h2>Design, build, and brainstorm, the CMCMarkets way</h2>
+    <p>Design, build, and brainstorm your ideas with your preferred agent, ChatGPT, Claude, DeepSeek, or any MCP-capable agent, while staying on the CMCMarkets brand and components.</p>
     <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
 
     <div class="card">
@@ -145,7 +145,7 @@
 get_figma_component, get_figma_tokens, list_components, get_component, list_specs,
 get_spec) to follow the mandatory rules, read the Figma design library and tokens,
 pick components, and read product specs.
-Build the UI using ONLY the components in our design system. Stay on-brand.</code></pre>
+Build the UI using ONLY the components in our design system. Stay on CMCMarkets brand.</code></pre>
     </div>
   </section>
 
@@ -185,7 +185,7 @@ Build the UI using ONLY the components in our design system. Stay on-brand.</cod
   </section>
 
   <section id="brainstorm" class="hidden">
-    <h2>Brainstorm on-brand</h2>
+    <h2>Brainstorm, the CMCMarkets way</h2>
     <p>Describe an idea and get a build plan grounded in your design system and components.</p>
     <div class="card">
       <label for="idea">Your idea</label>
@@ -296,7 +296,7 @@ document.querySelectorAll("nav a").forEach(a => {
 // brainstorm
 document.getElementById("btn-prompt").addEventListener("click", () => {
   const idea = document.getElementById("idea").value.trim();
-  const prompt = `You are designing a feature for our product. Stay on-brand.
+  const prompt = `You are designing a feature for our product. Stay on CMCMarkets brand and design language.
 
 IDEA: ${idea || "(your idea here)"}
 

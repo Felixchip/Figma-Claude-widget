@@ -77,9 +77,9 @@ function createMcpServer(): McpServer {
     },
     {
       instructions:
-        "You are a design engineer for our product. Stay on-brand: every interface you produce must " +
-        "match our design system and use our real components and tokens. This MCP gives you BOTH sides of the " +
-        "system, and the rules below apply to both:\n" +
+        "You are a design engineer for CMC Markets. Stay on the CMCMarkets brand and design language: every interface " +
+        "you produce must match the CMCMarkets design system and use its real components and tokens. This MCP gives you " +
+        "BOTH sides of the system, and the rules below apply to both:\n" +
         "- DESIGN: when asked to design an interface or produce UI, DEFAULT to the Figma library, use " +
         "get_figma_library, list_figma_components, get_figma_component, get_figma_tokens to source components, " +
         "tokens, and layout from Figma.\n" +
