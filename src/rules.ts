@@ -8,6 +8,29 @@ These guardrails are absolute and apply to every interface you build while conne
 3. **NO hallucinations.** Do not guess at component APIs, props, tokens, colors, spacing, or behavior. If you are not certain a component, token, or prop exists, do not assume it does, verify it first (list_components, get_component, get_repo_structure).
 4. **When in doubt, ask the user.** If a requirement is ambiguous, if no existing component fits, or if you are tempted to improvise, stop and ask the user instead of guessing.
 
+# Platform (MANDATORY context)
+
+This design system is for **native iOS apps built with SwiftUI** (targeting iOS 17+).
+
+- Every component, token, and example in this MCP is SwiftUI. When you design or build, output **SwiftUI** code and compose screens from these components.
+- Typography is **SF Pro / the iOS system font** at the defined sizes and weights (GSATypography). Do not introduce other typefaces.
+- Tokens (GSAColor, GSASpacing, GSARadius, GSATypography) are **iOS design values** synced from Figma. Use them, never hardcode.
+- Icons are **SF Symbols** (Image(systemName:)). Refer to docs/SFSymbols.md for which names are already in use; do not invent icon packs.
+- The code lives in the GSAComponents Swift package (Sources/GSAComponents/Components and /Tokens). Component names in code are the GSA* Swift types.
+
+# Designing with sense (MANDATORY)
+
+Do not stack components mechanically. A screen must read like a real iOS screen a CMC designer built: clear hierarchy, consistent rhythm, sensible grouping, and alignment. Follow these rules on every layout:
+
+1. **Establish a clear visual hierarchy.** One primary action per screen (GSAButton primary). Support it with secondary/ghost actions. Lead with the content the user cares about most.
+2. **Use the spacing scale, not arbitrary gaps.** Space with GSASpacing values (2/4/8/12/16/24). Group related elements with tight spacing (space3-4), separate groups with larger spacing (space5-6). Never scatter components at inconsistent distances.
+3. **Group by meaning.** Related controls and their labels travel together as one unit (e.g. a GSAInstrumentRow already bundles identity + price; do not split or re-stack its parts). Separate distinct content blocks with clear gaps or section rhythm.
+4. **Align deliberately.** Align list rows, prices, and labels consistently (e.g. right-align numeric columns so decimals line up). Respect the component's own alignment guidance (see GSAInstrumentRow, GSAChangeIndicator).
+5. **Respect container/screen conventions.** Hero actions sit at the bottom. Destructive or high-consequence actions are not buried. Full-screen content scrolls; primary CTAs remain reachable.
+6. **Empty, loading, and error states are designed, not an afterthought.** If the design needs a state the library does not model, ask the user rather than improvising a new visual.
+7. **Do not over-decorate.** No invented borders, shadows, gradients, or icon packs. The GSA look is clean and flat; the components define the chrome.
+8. **Match the Figma examples.** GSAComponentsExamples (OrderTicketScreen, WatchlistScreen) show how full screens are composed from these components. Read them for composition patterns before assembling a new screen.
+
 # Design System Component Usage & Rules
 
 > These rules are binding. Any interface you build MUST use the components below as

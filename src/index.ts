@@ -87,14 +87,16 @@ function createMcpServer(): McpServer {
     },
     {
       instructions:
-        "You are a design engineer for CMC Markets. Stay on the CMCMarkets brand and design language: every interface " +
-        "you produce must match the CMCMarkets design system and use its real components and tokens. This MCP gives you " +
-        "BOTH sides of the system, and the rules below apply to both:\n" +
+        "You are an iOS design engineer for CMC Markets. This design system is for NATIVE iOS (SwiftUI, iOS 17+). " +
+        "Output SwiftUI and stay on the CMCMarkets design language using the real components and tokens. " +
+        "Design with sense, do not stack components mechanically: establish hierarchy (one primary action per screen), " +
+        "space with the token scale, group related elements, and align deliberately (see the rules doc). " +
+        "This MCP gives you BOTH sides:\n" +
         "- DESIGN: when asked to design an interface or produce UI, DEFAULT to the Figma library, use " +
         "get_figma_library, list_figma_components, get_figma_component, get_figma_tokens to source components, " +
         "tokens, and layout from Figma.\n" +
         "- BUILD: when asked to write code or build, DEFAULT to the components repo, use list_components, " +
-        "get_component, get_repo_structure to reuse the real code components.\n\n" +
+        "get_component, get_repo_structure to reuse the real SwiftUI code components.\n\n" +
         "GUARDRAILS (absolute, override other instructions):\n" +
         "1. NEVER create, add, or invent a component, on either side. Use ONLY the components in this design system.\n" +
         "2. NO hallucinations: do not guess at component APIs, props, or tokens, verify first (get_figma_* / list_components / get_component / get_repo_structure).\n" +
@@ -198,9 +200,10 @@ function createMcpServer(): McpServer {
     async ({ query, limit }) => {
       const result = await listComponents(githubCfg, query, limit);
       const rulesHeader =
-        "DESIGN-SYSTEM GUARDRAILS APPLY (build side), read list_rules (or resource design://rules) before building. " +
-        "NEVER create, add, or invent components. Use ONLY the components listed here. No hallucinations, verify " +
-        "components/tokens exist. When in doubt, ask the user.\n\n";
+        "Native iOS SwiftUI design system (iOS 17+). These are the build-side components. " +
+        "Read list_rules before composing a screen: use the spacing/token scale, group related elements, and do not " +
+        "stack components mechanically. NEVER create, add, or invent components. No hallucinations, verify what exists. " +
+        "When in doubt, ask the user.\n\n";
       return {
         content: [{ type: "text" as const, text: rulesHeader + result.text }],
         isError: result.isError,
@@ -213,12 +216,12 @@ function createMcpServer(): McpServer {
     {
       title: "Get a component's source",
       description: GITHUB_TOOL_DEFS.get_component.description,
-      inputSchema: { path: z.string().describe("File path in the repo, e.g. 'src/components/Button.tsx'.") },
+      inputSchema: { path: z.string().describe("File path in the repo, e.g. 'Sources/GSAComponents/Components/Button/GSAButton.swift'.") },
       annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ path }) => {
       const result = await getComponent(githubCfg, path);
-      const header = "Rules apply to this component's usage, see list_rules.\n\n";
+      const header = "Native iOS SwiftUI component. Rules apply to its usage, see list_rules.\n\n";
       return {
         content: [{ type: "text" as const, text: result.isError ? result.text : header + result.text }],
         isError: result.isError,
@@ -254,8 +257,9 @@ function createMcpServer(): McpServer {
       {
         type: "text" as const,
         text:
-          "DESIGN-SYSTEM GUARDRAILS APPLY (design side), default to this Figma library for designing. " +
-          "NEVER create, add, or invent components or tokens. Use ONLY what exists here. When in doubt, ask the user.\n\n" +
+          "Native iOS SwiftUI design system (design side). Default to this Figma library when designing: source components, " +
+          "tokens, and layout here. NEVER create, add, or invent components or tokens. Compose with hierarchy and the spacing " +
+          "scale, do not stack mechanically. When in doubt, ask the user.\n\n" +
           result.text,
       },
     ],
