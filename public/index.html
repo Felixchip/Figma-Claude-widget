@@ -141,7 +141,7 @@
 
     <div class="card hidden">
       <h3>Recommended prompt</h3>
-      <pre><code>Use the design-system MCP (list_rules, get_figma_library, list_figma_components,
+      <pre><code>Use the cmc-build-kit MCP (list_rules, get_figma_library, list_figma_components,
 get_figma_component, get_figma_tokens, list_components, get_component, list_specs,
 get_spec) to follow the mandatory rules, read the Figma design library and tokens,
 pick components, and read product specs.
@@ -207,24 +207,24 @@ const serverUrl = mcpUrl + "/mcp";
 const AGENTS = {
   "chatgpt-codex": {
     label: "ChatGPT / Codex",
-    hint: "ChatGPT: Settings → Connections → Add MCP server. Codex: add to your mcp config.",
+    hint: "ChatGPT: add as an MCP connector in Developer mode. Codex: add to your mcp config.",
     code: `{
   "mcpServers": {
-    "design-system": { "url": "${serverUrl}" }
+    "cmc-build-kit": { "url": "${serverUrl}" }
   }
 }`
   },
   "claude-code": {
     label: "Claude Code",
     hint: "Run this command in your terminal.",
-    code: `claude mcp add --transport http design-system ${serverUrl}`
+    code: `claude mcp add --transport http cmc-build-kit ${serverUrl}`
   },
   "cursor": {
     label: "Cursor",
     hint: "Cursor Settings → MCP → + Add new global MCP server.",
     code: `{
   "mcpServers": {
-    "design-system": { "url": "${serverUrl}" }
+    "cmc-build-kit": { "url": "${serverUrl}" }
   }
 }`
   },
@@ -238,7 +238,7 @@ const AGENTS = {
     hint: "Add to your MCP-compatible client (e.g. Cline, Continue).",
     code: `{
   "mcpServers": {
-    "design-system": { "url": "${serverUrl}" }
+    "cmc-build-kit": { "url": "${serverUrl}" }
   }
 }`
   }
@@ -306,14 +306,14 @@ GUARDRAILS, these are absolute:
 3. When in doubt, ask the user.
 
 WORKFLOW:
-1. Follow the design-system MCP rules (list_rules).
+1. Follow the cmc-build-kit MCP rules (list_rules).
 2. Read the Figma design library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).
 3. Inspect our components repo (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
 4. Plan the UI using ONLY components and tokens that exist in our system.
 5. If a needed component does not exist, STOP and ask the user, do not invent one.
 6. Output: (a) a component map, (b) the screens/flows, (c) anything the user needs to provide, (d) rough implementation steps for an agent.
 
-Connect the design-system MCP before running this.`;
+Connect the cmc-build-kit MCP before running this.`;
   const out = document.getElementById("prompt-out");
   out.textContent = prompt;
   out.classList.remove("hidden");

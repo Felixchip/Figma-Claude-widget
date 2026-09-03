@@ -69,11 +69,21 @@ function toContent(result: { text: string; isError?: boolean }) {
   };
 }
 
+// All tools are read-only: they read the design library, the components repo, and
+// specs. None modify state or external systems, so mark them accordingly so
+// ChatGPT/Codex apply the right confirmation behavior.
+const READ_ONLY_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  openWorldHint: false,
+  idempotentHint: true,
+} as const;
+
 function createMcpServer(): McpServer {
   const server = new McpServer(
     {
-      name: "design-system-mcp",
-      version: "0.2.0",
+      name: "cmc-build-kit",
+      version: "0.3.0",
     },
     {
       instructions:
@@ -115,13 +125,15 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "list_rules",
     {
+      title: "List design system rules",
       description:
         "Read the MANDATORY design-system guardrails and component usage rules. Call this before building anything. " +
         "Rules apply to BOTH sides: default to the Figma library (get_figma_*) when designing, and to the code repo " +
         "(list_components / get_component) when building. Guardrails: NEVER create/add/invent components on either " +
-        "side, use ONLY the components in this design system. No hallucinations, verify components/tokens exist. " +
+        "side, use ONLY the components in this design system. No hallucinations, verify components/token exist. " +
         "When in doubt, ask the user.",
       inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
     },
     async () => ({ content: [{ type: "text" as const, text: DESIGN_SYSTEM_RULES }] })
   );
@@ -130,9 +142,11 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "list_specs",
     {
+      title: "List product specs",
       description:
         "List the product specs that have been published from the Figma widget. Returns each spec's id, nodeId and the time it was last updated.",
       inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
     },
     async () => {
       const rows = await store.list();
@@ -143,9 +157,11 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "get_spec",
     {
+      title: "Get a product spec",
       description:
         "Get the full product spec for the given id, published from the Figma widget. Use this to understand exactly what the interface must do before writing code.",
       inputSchema: { id: z.string().describe("The spec id returned by list_specs.") },
+      annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ id }) => {
       const spec = await store.get(id);
@@ -159,18 +175,25 @@ function createMcpServer(): McpServer {
   // --- GitHub components tools ---------------------------------------------
   server.registerTool(
     "get_repo_overview",
-    { description: GITHUB_TOOL_DEFS.get_repo_overview.description, inputSchema: {} },
+    {
+      title: "Get components repo overview",
+      description: GITHUB_TOOL_DEFS.get_repo_overview.description,
+      inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     async () => toContent(await getRepoOverview(githubCfg))
   );
 
   server.registerTool(
     "list_components",
     {
+      title: "List components in the repo",
       description: GITHUB_TOOL_DEFS.list_components.description,
       inputSchema: {
         query: z.string().optional().describe("Optional substring to filter component names/paths by."),
         limit: z.number().min(1).max(200).optional().describe("Max results (default 100)."),
       },
+      annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ query, limit }) => {
       const result = await listComponents(githubCfg, query, limit);
@@ -188,8 +211,10 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "get_component",
     {
+      title: "Get a component's source",
       description: GITHUB_TOOL_DEFS.get_component.description,
       inputSchema: { path: z.string().describe("File path in the repo, e.g. 'src/components/Button.tsx'.") },
+      annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ path }) => {
       const result = await getComponent(githubCfg, path);
@@ -203,15 +228,22 @@ function createMcpServer(): McpServer {
 
   server.registerTool(
     "get_repo_structure",
-    { description: GITHUB_TOOL_DEFS.get_repo_structure.description, inputSchema: {} },
+    {
+      title: "Get repo directory structure",
+      description: GITHUB_TOOL_DEFS.get_repo_structure.description,
+      inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     async () => toContent(await getRepoStructure(githubCfg))
   );
 
   server.registerTool(
     "search_components",
     {
+      title: "Search components in the repo",
       description: GITHUB_TOOL_DEFS.search_components.description,
       inputSchema: { query: z.string().describe("Keyword to search component names and paths for.") },
+      annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ query }) => toContent(await searchComponents(githubCfg, query))
   );
@@ -232,28 +264,45 @@ function createMcpServer(): McpServer {
 
   server.registerTool(
     "get_figma_library",
-    { description: FIGMA_TOOL_DEFS.get_figma_library.description, inputSchema: {} },
+    {
+      title: "Get Figma design library overview",
+      description: FIGMA_TOOL_DEFS.get_figma_library.description,
+      inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     async () => figmaGuardrail(await getFigmaLibrary(store))
   );
 
   server.registerTool(
     "list_figma_components",
-    { description: FIGMA_TOOL_DEFS.list_figma_components.description, inputSchema: {} },
+    {
+      title: "List components in the Figma library",
+      description: FIGMA_TOOL_DEFS.list_figma_components.description,
+      inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     async () => figmaGuardrail(await listFigmaComponents(store))
   );
 
   server.registerTool(
     "get_figma_component",
     {
+      title: "Get a Figma component's details",
       description: FIGMA_TOOL_DEFS.get_figma_component.description,
       inputSchema: { query: z.string().describe("Component name (exact or partial match).") },
+      annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ query }) => figmaGuardrail(await getFigmaComponent(store, query))
   );
 
   server.registerTool(
     "get_figma_tokens",
-    { description: FIGMA_TOOL_DEFS.get_figma_tokens.description, inputSchema: {} },
+    {
+      title: "Get Figma design tokens",
+      description: FIGMA_TOOL_DEFS.get_figma_tokens.description,
+      inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     async () => figmaGuardrail(await getFigmaTokens(store))
   );
 

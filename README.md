@@ -93,13 +93,13 @@ Result: `https://<your-app>.up.railway.app` — web UI at `/`, MCP at `/mcp`, he
 
 ## Connect your agent
 
-Add **two** MCP servers so the agent sees design + code context:
+The MCP is named `cmc-build-kit`. Add it (plus Figma's official MCP) so the agent sees design + code context:
 
 ```json
 {
   "mcpServers": {
     "figma":          { "url": "https://mcp.figma.com/mcp" },
-    "design-system":  { "url": "https://<your-app>.up.railway.app/mcp" }
+    "cmc-build-kit":  { "url": "https://<your-app>.up.railway.app/mcp" }
   }
 }
 ```
@@ -108,16 +108,31 @@ Claude Code:
 
 ```sh
 claude mcp add --transport http figma https://mcp.figma.com/mcp
-claude mcp add --transport http design-system https://<your-app>.up.railway.app/mcp
+claude mcp add --transport http cmc-build-kit https://<your-app>.up.railway.app/mcp
 ```
+
+### ChatGPT / Codex connector
+
+The `cmc-build-kit` MCP is a Streamable HTTP server at `https://<your-app>.up.railway.app/mcp` and works as an open ChatGPT connector (no per-user login). All tools are read-only.
+
+1. In ChatGPT, enable **Developer mode** (Settings → Security and login).
+2. Go to ChatGPT Plugins (or the Codex connector config), add a new MCP connector, and paste the server URL:
+   `https://<your-app>.up.railway.app/mcp`
+3. The connector exposes the `cmc-build-kit` tools (prefixed `cmc_build_kit_*`): list rules, Figma library/components/tokens, repo components, and specs.
+
+Design/write flow for ChatGPT users:
+- The Build Kit connector supplies the components/tokens/rules (read-only, shared).
+- Writing into a user's own Figma file is done through Figma's official MCP (https://mcp.figma.com/mcp), which ChatGPT connects separately with the user's own Figma account.
 
 Suggested prompt:
 
 ```
 Use the Figma MCP (get_design_context + get_variable_defs) to read the design,
-and the design-system MCP (list_components, get_component, list_specs, get_spec)
-to pick components and read product specs from our repo.
-Build the UI reusing our components and design tokens. Stay on-brand.
+and the cmc-build-kit MCP (list_rules, get_figma_library, list_figma_components,
+get_figma_component, get_figma_tokens, list_components, get_component, list_specs,
+get_spec) to follow the mandatory rules, read the design library and tokens,
+pick components, and read product specs.
+Build the UI using ONLY the components in our design system. Stay on the CMC brand.
 ```
 
 ## Figma widget
