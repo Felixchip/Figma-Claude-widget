@@ -88,8 +88,13 @@ The design-system component rules (`docs/ComponentUsage.md`) are binding for any
 | `GITHUB_BRANCH` | Branch to read (default `main`) |
 | `FIGMA_CLIENT_ID` / `FIGMA_CLIENT_SECRET` | Figma OAuth app credentials (see Figma OAuth setup) |
 | `PUBLIC_BASE_URL` | Your app URL, e.g. `https://your-app.up.railway.app` |
+| `ADMIN_TOKEN` | Optional bearer token to edit the component usage rules via `PUT /api/rules` |
 
 Result: `https://<your-app>.up.railway.app` — web UI at `/`, MCP at `/mcp`, healthcheck at `/health`.
+
+### Editing the component usage rules
+
+The per-component usage rules are **editable at runtime** from the web UI (Settings → Component usage rules) or via `PUT /api/rules`. They're stored server-side (Postgres) and merged with the static guardrails/platform/design-sense preamble when an agent reads `list_rules` or `design://rules`. No code change or redeploy needed to update component guidance. Set `ADMIN_TOKEN` to protect writes.
 
 ## Connect your agent
 

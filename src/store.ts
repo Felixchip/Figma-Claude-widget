@@ -36,6 +36,8 @@ export interface SpecStore {
   saveFigmaSettings(s: FigmaSettings): Promise<void>;
   updateFigmaFileName(fileName: string): Promise<void>;
   clearFigmaSettings(): Promise<void>;
+  getUsageRules(): Promise<string | undefined>;
+  saveUsageRules(rules: string): Promise<void>;
 }
 
 function toSpec(row: any): Spec {
@@ -133,6 +135,14 @@ class PostgresStore implements SpecStore {
     await this.setSetting("figma_file_name", fileName);
   }
 
+  async getUsageRules(): Promise<string | undefined> {
+    return this.getSetting("usage_rules");
+  }
+
+  async saveUsageRules(rules: string): Promise<void> {
+    await this.setSetting("usage_rules", rules);
+  }
+
   async list(): Promise<SpecRow[]> {
     const res = await this.pool.query(
       "SELECT id, node_id, updated_at FROM specs ORDER BY updated_at DESC"
@@ -223,6 +233,14 @@ class MemoryStore implements SpecStore {
 
   async updateFigmaFileName(fileName: string): Promise<void> {
     this.settings.set("figma_file_name", fileName);
+  }
+
+  async getUsageRules(): Promise<string | undefined> {
+    return this.settings.get("usage_rules");
+  }
+
+  async saveUsageRules(rules: string): Promise<void> {
+    this.settings.set("usage_rules", rules);
   }
 }
 

@@ -182,6 +182,20 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       <p>One MCP endpoint for everything: your Figma design library, your product specs, your code components repo, and the mandatory design rules, so agents reuse real components instead of inventing them.</p>
       <p class="pill">get_figma_library</p><p class="pill">list_figma_components</p><p class="pill">get_figma_component</p><p class="pill">get_figma_tokens</p><p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
     </div>
+
+    <div class="card">
+      <h3>Component usage rules</h3>
+      <p>Edit the per-component usage rules agents receive (via <code>list_rules</code> and <code>design://rules</code>). Saved immediately, no redeploy needed. Requires the <code>ADMIN_TOKEN</code>.</p>
+      <label for="rules-admin-token">Admin token</label>
+      <input type="password" id="rules-admin-token" placeholder="ADMIN_TOKEN">
+      <label for="usage-rules-editor" style="margin-top:12px">Rules (markdown)</label>
+      <textarea id="usage-rules-editor" style="min-height:260px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+      <div class="toolbar" style="margin-top:12px">
+        <button id="btn-rules-load" class="secondary">Load current</button>
+        <button id="btn-rules-save">Save rules</button>
+        <span id="rules-status" style="font-size:13px;color:var(--muted)"></span>
+      </div>
+    </div>
   </section>
 
   <section id="brainstorm" class="hidden">
@@ -403,6 +417,37 @@ if (new URLSearchParams(window.location.search).get("figma") === "connected") {
 
 checkStatus();
 refreshFigma();
+
+// rules editor
+const rulesStatus = document.getElementById("rules-status");
+document.getElementById("btn-rules-load").addEventListener("click", async () => {
+  rulesStatus.textContent = "Loading…";
+  try {
+    const r = await fetch(mcpUrl + "/api/rules");
+    const d = await r.json();
+    document.getElementById("usage-rules-editor").value = d.rules;
+    rulesStatus.textContent = d.updated ? "Loaded (edited version)." : "Loaded (defaults).";
+  } catch (e) {
+    rulesStatus.textContent = "Failed to load: " + e.message;
+  }
+});
+document.getElementById("btn-rules-save").addEventListener("click", async () => {
+  const token = document.getElementById("rules-admin-token").value.trim();
+  const rules = document.getElementById("usage-rules-editor").value.trim();
+  rulesStatus.textContent = "Saving…";
+  try {
+    const r = await fetch(mcpUrl + "/api/rules", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({ rules })
+    });
+    const d = await r.json();
+    if (!r.ok) { rulesStatus.textContent = d.error || "Save failed."; return; }
+    rulesStatus.textContent = "Saved. Agents get the updated rules on their next read.";
+  } catch (e) {
+    rulesStatus.textContent = "Save failed: " + e.message;
+  }
+});
 </script>
 <footer>© <span class="brand">CMCMarkets</span> · CMC Build Kit</footer>
 </body>

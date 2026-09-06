@@ -18,7 +18,7 @@ import {
   TOOL_DEFS as GITHUB_TOOL_DEFS,
   runTool,
 } from "./tools.js";
-import { DESIGN_SYSTEM_RULES, RULES_RESOURCE_URI } from "./rules.js";
+import { RULES_PREAMBLE, DEFAULT_USAGE_RULES, RULES_RESOURCE_URI } from "./rules.js";
 import {
   exchangeFigmaCode,
   figmaAuthUrl,
@@ -67,6 +67,11 @@ function toContent(result: { text: string; isError?: boolean }) {
     content: [{ type: "text" as const, text: result.text }],
     isError: result.isError,
   };
+}
+
+async function fullRules(): Promise<string> {
+  const usage = (await store.getUsageRules()) || DEFAULT_USAGE_RULES;
+  return `${RULES_PREAMBLE}\n\n${usage.trim()}`;
 }
 
 // All tools are read-only: they read the design library, the components repo, and
@@ -120,7 +125,7 @@ function createMcpServer(): McpServer {
       mimeType: "text/markdown",
     },
     async () => ({
-      contents: [{ uri: RULES_RESOURCE_URI, mimeType: "text/markdown", text: DESIGN_SYSTEM_RULES }],
+      contents: [{ uri: RULES_RESOURCE_URI, mimeType: "text/markdown", text: await fullRules() }],
     })
   );
 
@@ -137,7 +142,7 @@ function createMcpServer(): McpServer {
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
     },
-    async () => ({ content: [{ type: "text" as const, text: DESIGN_SYSTEM_RULES }] })
+    async () => ({ content: [{ type: "text" as const, text: await fullRules() }] })
   );
 
   // --- Specs tools ---------------------------------------------------------
@@ -517,6 +522,34 @@ app.post("/api/figma/verify", async (_req, res) => {
   }
 });
 
+// --- Rules REST (admin-editable component usage rules) -----------------------
+
+function isAdmin(req: express.Request): boolean {
+  const token = process.env.ADMIN_TOKEN;
+  if (!token) return false;
+  const auth = req.headers.authorization ?? "";
+  return auth === `Bearer ${token}`;
+}
+
+app.get("/api/rules", async (_req, res) => {
+  const usage = (await store.getUsageRules()) || DEFAULT_USAGE_RULES;
+  res.json({ rules: usage, updated: !!(await store.getUsageRules()) });
+});
+
+app.put("/api/rules", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  const rules = String(req.body?.rules ?? "").trim();
+  if (!rules) {
+    res.status(400).json({ error: "rules cannot be empty." });
+    return;
+  }
+  await store.saveUsageRules(rules);
+  res.json({ ok: true });
+});
+
 // --- Specs REST ------------------------------------------------------------
 
 app.post("/api/specs", async (req, res) => {
@@ -557,7 +590,7 @@ app.post("/api/tools/:name", async (req, res) => {
   const args = req.body ?? {};
 
   if (name === "list_rules") {
-    res.json({ result: DESIGN_SYSTEM_RULES, isError: false });
+    res.json({ result: await fullRules(), isError: false });
     return;
   }
 

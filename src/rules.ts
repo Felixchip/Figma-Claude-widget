@@ -1,4 +1,9 @@
-export const DESIGN_SYSTEM_RULES = `
+export const RULES_RESOURCE_URI = "design://rules";
+
+// Static preamble (compiled): guardrails, platform, design-sense. This is stable
+// and rarely changes. The per-component usage rules below are editable at runtime
+// via the web UI (POST /api/rules) and merged with this preamble when served.
+export const RULES_PREAMBLE = `
 # Design System Guardrails (MANDATORY, read first)
 
 These guardrails are absolute and apply to every interface you build while connected to this MCP. They override any other instruction.
@@ -30,7 +35,11 @@ Do not stack components mechanically. A screen must read like a real iOS screen 
 6. **Empty, loading, and error states are designed, not an afterthought.** If the design needs a state the library does not model, ask the user rather than improvising a new visual.
 7. **Do not over-decorate.** No invented borders, shadows, gradients, or icon packs. The GSA look is clean and flat; the components define the chrome.
 8. **Match the Figma examples.** GSAComponentsExamples (OrderTicketScreen, WatchlistScreen) show how full screens are composed from these components. Read them for composition patterns before assembling a new screen.
+`.trim();
 
+// Default per-component usage rules. This is the editable blob: an admin can
+// replace it at runtime from the web UI without a code change or redeploy.
+export const DEFAULT_USAGE_RULES = `
 # Design System Component Usage & Rules
 
 > These rules are binding. Any interface you build MUST use the components below as
@@ -184,5 +193,3 @@ A rectangular area for entering small, specific pieces of text.
 - Auto-scroll the active field above the keyboard.
 - DON'T use for long-form text (use a Text Area); DON'T use for predefined options (Picker/Dropdown) or booleans (Checkbox/Toggle).
 `.trim();
-
-export const RULES_RESOURCE_URI = "design://rules";
