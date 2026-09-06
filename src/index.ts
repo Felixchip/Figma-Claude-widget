@@ -18,7 +18,8 @@ import {
   TOOL_DEFS as GITHUB_TOOL_DEFS,
   runTool,
 } from "./tools.js";
-import { RULES_PREAMBLE, DEFAULT_USAGE_RULES, RULES_RESOURCE_URI } from "./rules.js";
+import { RULES_PREAMBLE, RULES_RESOURCE_URI } from "./rules.js";
+import { buildRegistry, rulesToMarkdown, normalizeComponentKey, type ComponentEntry } from "./registry.js";
 import {
   exchangeFigmaCode,
   figmaAuthUrl,
@@ -70,8 +71,12 @@ function toContent(result: { text: string; isError?: boolean }) {
 }
 
 async function fullRules(): Promise<string> {
-  const usage = (await store.getUsageRules()) || DEFAULT_USAGE_RULES;
-  return `${RULES_PREAMBLE}\n\n${usage.trim()}`;
+  // Rebuild lazily from live sources + stored rules; fall back to the static
+  // defaults if the sources aren't reachable yet. The registry is cached in the
+  // store so rules typed by an admin survive restarts.
+  const existing = (await store.getRegistry()) as ComponentEntry[];
+  const registry = existing.length ? existing : await buildRegistry(githubCfg, store, []);
+  return rulesToMarkdown(RULES_PREAMBLE, registry);
 }
 
 // All tools are read-only: they read the design library, the components repo, and
@@ -522,7 +527,7 @@ app.post("/api/figma/verify", async (_req, res) => {
   }
 });
 
-// --- Rules REST (admin-editable component usage rules) -----------------------
+// --- Rules REST (component-based usage rules) --------------------------------
 
 function isAdmin(req: express.Request): boolean {
   const token = process.env.ADMIN_TOKEN;
@@ -531,23 +536,57 @@ function isAdmin(req: express.Request): boolean {
   return auth === `Bearer ${token}`;
 }
 
-app.get("/api/rules", async (_req, res) => {
-  const usage = (await store.getUsageRules()) || DEFAULT_USAGE_RULES;
-  res.json({ rules: usage, updated: !!(await store.getUsageRules()) });
+// Rebuild the registry from live Figma + GitHub sources, preserving stored rules.
+async function syncRegistry(): Promise<ComponentEntry[]> {
+  const existing = (await store.getRegistry()) as ComponentEntry[];
+  const registry = await buildRegistry(githubCfg, store, existing);
+  await store.saveRegistry(registry as unknown as unknown[]);
+  return registry;
+}
+
+// GET /api/components — the registry (merged Figma+GitHub) with rules, sources.
+app.get("/api/components", async (_req, res) => {
+  const existing = (await store.getRegistry()) as ComponentEntry[];
+  const registry = existing.length ? existing : await buildRegistry(githubCfg, store, []);
+  res.json({ components: registry });
 });
 
-app.put("/api/rules", async (req, res) => {
+// POST /api/components/sync — refresh the registry from live sources (admin).
+app.post("/api/components/sync", async (req, res) => {
   if (!isAdmin(req)) {
     res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
     return;
   }
-  const rules = String(req.body?.rules ?? "").trim();
-  if (!rules) {
-    res.status(400).json({ error: "rules cannot be empty." });
+  try {
+    const registry = await syncRegistry();
+    res.json({ components: registry });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// PUT /api/components/:key/rule — define/replace a single component's rule (admin).
+app.put("/api/components/:key/rule", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
     return;
   }
-  await store.saveUsageRules(rules);
-  res.json({ ok: true });
+  const key = normalizeComponentKey(req.params.key);
+  const rule = String(req.body?.rule ?? "").trim();
+  const existing = (await store.getRegistry()) as ComponentEntry[];
+  const idx = existing.findIndex((e) => e.key === key);
+  if (idx === -1) {
+    res.status(404).json({ error: `Component '${key}' not found. Run sync first.` });
+    return;
+  }
+  existing[idx] = { ...existing[idx], rule };
+  await store.saveRegistry(existing as unknown as unknown[]);
+  res.json({ ok: true, component: existing[idx] });
+});
+
+// GET /api/rules — for backwards compatibility: returns the assembled markdown.
+app.get("/api/rules", async (_req, res) => {
+  res.json({ rules: await fullRules() });
 });
 
 // --- Specs REST ------------------------------------------------------------

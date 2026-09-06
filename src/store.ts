@@ -38,6 +38,8 @@ export interface SpecStore {
   clearFigmaSettings(): Promise<void>;
   getUsageRules(): Promise<string | undefined>;
   saveUsageRules(rules: string): Promise<void>;
+  getRegistry(): Promise<unknown[]>;
+  saveRegistry(entries: unknown[]): Promise<void>;
 }
 
 function toSpec(row: any): Spec {
@@ -143,6 +145,21 @@ class PostgresStore implements SpecStore {
     await this.setSetting("usage_rules", rules);
   }
 
+  async getRegistry(): Promise<unknown[]> {
+    const raw = await this.getSetting("component_registry");
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveRegistry(entries: unknown[]): Promise<void> {
+    await this.setSetting("component_registry", JSON.stringify(entries));
+  }
+
   async list(): Promise<SpecRow[]> {
     const res = await this.pool.query(
       "SELECT id, node_id, updated_at FROM specs ORDER BY updated_at DESC"
@@ -241,6 +258,21 @@ class MemoryStore implements SpecStore {
 
   async saveUsageRules(rules: string): Promise<void> {
     this.settings.set("usage_rules", rules);
+  }
+
+  async getRegistry(): Promise<unknown[]> {
+    const raw = this.settings.get("component_registry");
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveRegistry(entries: unknown[]): Promise<void> {
+    this.settings.set("component_registry", JSON.stringify(entries));
   }
 }
 

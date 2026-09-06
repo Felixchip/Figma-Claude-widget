@@ -185,16 +185,15 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
 
     <div class="card">
       <h3>Component usage rules</h3>
-      <p>Edit the per-component usage rules agents receive (via <code>list_rules</code> and <code>design://rules</code>). Saved immediately, no redeploy needed. Requires the <code>ADMIN_TOKEN</code>.</p>
+      <p>Define a usage rule per component. Components are discovered automatically from the Figma library and the GitHub repo (matched by name). Empty until you define a rule. Agents read these via <code>list_rules</code> / <code>design://rules</code>.</p>
       <label for="rules-admin-token">Admin token</label>
       <input type="password" id="rules-admin-token" placeholder="ADMIN_TOKEN">
-      <label for="usage-rules-editor" style="margin-top:12px">Rules (markdown)</label>
-      <textarea id="usage-rules-editor" style="min-height:260px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
       <div class="toolbar" style="margin-top:12px">
-        <button id="btn-rules-load" class="secondary">Load current</button>
-        <button id="btn-rules-save">Save rules</button>
+        <button id="btn-components-load" class="secondary">Reload components</button>
+        <button id="btn-components-sync" class="secondary">Sync from Figma + GitHub</button>
         <span id="rules-status" style="font-size:13px;color:var(--muted)"></span>
       </div>
+      <div id="components-editor" style="margin-top:16px"></div>
     </div>
   </section>
 
@@ -304,6 +303,7 @@ document.querySelectorAll("nav a").forEach(a => {
     const id = a.getAttribute("href").slice(1);
     document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
+    if (id === "settings") loadComponents();
   });
 });
 
@@ -418,34 +418,91 @@ if (new URLSearchParams(window.location.search).get("figma") === "connected") {
 checkStatus();
 refreshFigma();
 
-// rules editor
+// component rules editor
 const rulesStatus = document.getElementById("rules-status");
-document.getElementById("btn-rules-load").addEventListener("click", async () => {
-  rulesStatus.textContent = "Loading…";
+const componentsEditor = document.getElementById("components-editor");
+let registryComponents = [];
+
+function authHeaders() {
+  const token = document.getElementById("rules-admin-token").value.trim();
+  return token ? { Authorization: "Bearer " + token } : {};
+}
+
+function sourceBadge(sources) {
+  const parts = sources.map(s => (s.source === "figma" ? "Figma" : "GitHub"));
+  return parts.join(" + ");
+}
+
+async function renderComponents(components) {
+  registryComponents = components || [];
+  const el = componentsEditor;
+  if (!registryComponents.length) {
+    el.innerHTML = '<p style="color:var(--muted)">No components yet. Click <b>Sync from Figma + GitHub</b> to discover them (needs Figma + GITHUB_REPO configured).</p>';
+    return;
+  }
+  let html = '<table style="width:100%;border-collapse:collapse">';
+  html += '<tr style="text-align:left;color:var(--muted);font-size:12px"><th style="padding:6px">Component</th><th style="padding:6px">Source</th><th style="padding:6px">Usage rule (markdown)</th></tr>';
+  registryComponents.forEach(c => {
+    html += `<tr style="border-top:1px solid var(--outline5);vertical-align:top">
+      <td style="padding:8px;font-weight:600;white-space:nowrap">${c.label}</td>
+      <td style="padding:8px;font-size:12px;color:var(--muted);white-space:nowrap">${sourceBadge(c.sources)}</td>
+      <td style="padding:8px">
+        <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:60px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
+        <div style="margin-top:4px"><button class="secondary" data-save="${c.key}" style="padding:4px 12px;font-size:12px">Save</button> <span data-status="${c.key}" style="font-size:12px;color:var(--muted)"></span></div>
+      </td>
+    </tr>`;
+  });
+  html += '</table>';
+  el.innerHTML = html;
+
+  el.querySelectorAll("[data-save]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const key = btn.getAttribute("data-save");
+      const textarea = el.querySelector(`textarea[data-key="${key}"]`);
+      const status = el.querySelector(`[data-status="${key}"]`);
+      status.textContent = "Saving…";
+      try {
+        const r = await fetch(`${mcpUrl}/api/components/${encodeURIComponent(key)}/rule`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ rule: textarea.value })
+        });
+        const d = await r.json();
+        if (!r.ok) { status.textContent = d.error || "Save failed."; return; }
+        status.textContent = "Saved.";
+      } catch (e) {
+        status.textContent = "Failed: " + e.message;
+      }
+    });
+  });
+}
+
+async function loadComponents() {
+  rulesStatus.textContent = "Loading components…";
   try {
-    const r = await fetch(mcpUrl + "/api/rules");
+    const r = await fetch(mcpUrl + "/api/components");
     const d = await r.json();
-    document.getElementById("usage-rules-editor").value = d.rules;
-    rulesStatus.textContent = d.updated ? "Loaded (edited version)." : "Loaded (defaults).";
+    renderComponents(d.components);
+    rulesStatus.textContent = "Components loaded.";
   } catch (e) {
     rulesStatus.textContent = "Failed to load: " + e.message;
   }
-});
-document.getElementById("btn-rules-save").addEventListener("click", async () => {
-  const token = document.getElementById("rules-admin-token").value.trim();
-  const rules = document.getElementById("usage-rules-editor").value.trim();
-  rulesStatus.textContent = "Saving…";
+}
+
+document.getElementById("btn-components-load").addEventListener("click", loadComponents);
+document.getElementById("btn-components-sync").addEventListener("click", async () => {
+  rulesStatus.textContent = "Syncing…";
   try {
-    const r = await fetch(mcpUrl + "/api/rules", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-      body: JSON.stringify({ rules })
+    const r = await fetch(mcpUrl + "/api/components/sync", {
+      method: "POST",
+      headers: { ...authHeaders() }
     });
     const d = await r.json();
-    if (!r.ok) { rulesStatus.textContent = d.error || "Save failed."; return; }
-    rulesStatus.textContent = "Saved. Agents get the updated rules on their next read.";
+    if (!r.ok) { rulesStatus.textContent = d.error || "Sync failed."; return; }
+    renderComponents(d.components);
+    rulesStatus.textContent = "Synced from Figma + GitHub.";
   } catch (e) {
-    rulesStatus.textContent = "Save failed: " + e.message;
+    rulesStatus.textContent = "Sync failed: " + e.message;
   }
 });
 </script>

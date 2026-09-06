@@ -88,13 +88,21 @@ The design-system component rules (`docs/ComponentUsage.md`) are binding for any
 | `GITHUB_BRANCH` | Branch to read (default `main`) |
 | `FIGMA_CLIENT_ID` / `FIGMA_CLIENT_SECRET` | Figma OAuth app credentials (see Figma OAuth setup) |
 | `PUBLIC_BASE_URL` | Your app URL, e.g. `https://your-app.up.railway.app` |
-| `ADMIN_TOKEN` | Optional bearer token to edit the component usage rules via `PUT /api/rules` |
+| `ADMIN_TOKEN` | Optional bearer token to sync/edit component usage rules |
+| `GITHUB_TOKEN` | Required for discovering components from a private repo |
 
 Result: `https://<your-app>.up.railway.app` — web UI at `/`, MCP at `/mcp`, healthcheck at `/health`.
 
-### Editing the component usage rules
+### Component usage rules
 
-The per-component usage rules are **editable at runtime** from the web UI (Settings → Component usage rules) or via `PUT /api/rules`. They're stored server-side (Postgres) and merged with the static guardrails/platform/design-sense preamble when an agent reads `list_rules` or `design://rules`. No code change or redeploy needed to update component guidance. Set `ADMIN_TOKEN` to protect writes.
+Component usage rules are **generated per component**, not one big document:
+
+- Components are discovered automatically from the **Figma library** and the **GitHub repo** and merged by name (a `GSA` prefix is stripped for matching, so `GSAButton` and Figma `Button` become one entry).
+- Every discovered component starts with an **empty rule**. An admin defines each rule in the web UI (Settings → Component usage rules) or via `PUT /api/components/:key/rule`.
+- `POST /api/components/sync` re-discovers components from the live sources; previously saved rules are preserved by key.
+- When an agent reads `list_rules` / `design://rules`, they get the static guardrails/platform preamble plus one section per component that has a rule, and a list of components that still have no rule defined.
+
+No code change or redeploy is needed to update component guidance. Set `ADMIN_TOKEN` to protect sync/edits.
 
 ## Connect your agent
 
