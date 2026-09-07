@@ -71,12 +71,10 @@ function toContent(result: { text: string; isError?: boolean }) {
 }
 
 async function fullRules(): Promise<string> {
-  // Rebuild lazily from live sources + stored rules; fall back to the static
-  // defaults if the sources aren't reachable yet. The registry is cached in the
-  // store so rules typed by an admin survive restarts.
+  // Use the stored registry if present; otherwise build once from live sources.
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const registry = existing.length ? existing : await buildRegistry(githubCfg, store, []);
-  return rulesToMarkdown(RULES_PREAMBLE, registry);
+  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [])).entries;
+  return rulesToMarkdown(RULES_PREAMBLE, entries);
 }
 
 // All tools are read-only: they read the design library, the components repo, and
@@ -537,18 +535,18 @@ function isAdmin(req: express.Request): boolean {
 }
 
 // Rebuild the registry from live Figma + GitHub sources, preserving stored rules.
-async function syncRegistry(): Promise<ComponentEntry[]> {
+async function syncRegistry(): Promise<{ entries: ComponentEntry[]; report: any }> {
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const registry = await buildRegistry(githubCfg, store, existing);
-  await store.saveRegistry(registry as unknown as unknown[]);
-  return registry;
+  const { entries, report } = await buildRegistry(githubCfg, store, existing);
+  await store.saveRegistry(entries as unknown as unknown[]);
+  return { entries, report };
 }
 
 // GET /api/components — the registry (merged Figma+GitHub) with rules, sources.
 app.get("/api/components", async (_req, res) => {
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const registry = existing.length ? existing : await buildRegistry(githubCfg, store, []);
-  res.json({ components: registry });
+  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [])).entries;
+  res.json({ components: entries });
 });
 
 // POST /api/components/sync — refresh the registry from live sources (admin).
@@ -558,8 +556,8 @@ app.post("/api/components/sync", async (req, res) => {
     return;
   }
   try {
-    const registry = await syncRegistry();
-    res.json({ components: registry });
+    const { entries, report } = await syncRegistry();
+    res.json({ components: entries, report });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

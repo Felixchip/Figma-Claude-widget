@@ -23,20 +23,25 @@ export function normalizeComponentKey(name: string): string {
   return s;
 }
 
+export type SyncReport = {
+  githubCount: number;
+  figmaCount: number;
+  githubError?: string;
+  figmaError?: string;
+  figmaTokenConfigured: boolean;
+  figmaFileConfigured: boolean;
+};
+
 export async function discoverGithubComponents(cfg: GitHubConfig): Promise<{ name: string; path: string }[]> {
   if (!cfg.owner || !cfg.repo) return [];
-  try {
-    const files = await getRepoTree(cfg);
-    return files
-      .filter((f) => looksLikeComponentFile(f.path))
-      .map((f) => ({
-        name: f.path.split("/").pop()!.replace(/\.[^.]+$/, ""),
-        path: f.path,
-      }))
-      .filter((c) => !/^package$/.test(c.name.toLowerCase()));
-  } catch {
-    return [];
-  }
+  const files = await getRepoTree(cfg);
+  return files
+    .filter((f) => looksLikeComponentFile(f.path))
+    .map((f) => ({
+      name: f.path.split("/").pop()!.replace(/\.[^.]+$/, ""),
+      path: f.path,
+    }))
+    .filter((c) => !/^package$/.test(c.name.toLowerCase()));
 }
 
 export async function discoverFigmaComponents(store: SpecStore): Promise<{ name: string; id: string }[]> {
@@ -45,12 +50,8 @@ export async function discoverFigmaComponents(store: SpecStore): Promise<{ name:
   const token = db?.token || figmaEnvToken();
   const fileKey = db?.fileKey || figmaEnvFileKey();
   if (!token || !fileKey) return [];
-  try {
-    const file = await figmaFile(token, fileKey);
-    return extractComponents(file).map((c) => ({ name: c.name, id: c.componentId }));
-  } catch {
-    return [];
-  }
+  const file = await figmaFile(token, fileKey);
+  return extractComponents(file).map((c) => ({ name: c.name, id: c.componentId }));
 }
 
 function mergeComponent(label: string, key: string, src: ComponentSource, map: Map<string, ComponentEntry>) {
@@ -65,17 +66,37 @@ function mergeComponent(label: string, key: string, src: ComponentSource, map: M
 
 // Build the canonical component registry from the live sources. Stored rules are
 // layered back on by key so previously-entered guidance survives re-syncs.
-export async function buildRegistry(cfg: GitHubConfig, store: SpecStore, existing: ComponentEntry[]): Promise<ComponentEntry[]> {
+export async function buildRegistry(
+  cfg: GitHubConfig,
+  store: SpecStore,
+  existing: ComponentEntry[]
+): Promise<{ entries: ComponentEntry[]; report: SyncReport }> {
   const map = new Map<string, ComponentEntry>();
+  const report: SyncReport = {
+    githubCount: 0,
+    figmaCount: 0,
+    figmaTokenConfigured: !!(figmaEnvToken() || (await store.getFigmaSettings())?.token),
+    figmaFileConfigured: !!(figmaEnvFileKey() || (await store.getFigmaSettings())?.fileKey),
+  };
 
-  const github = await discoverGithubComponents(cfg);
-  for (const c of github) {
-    mergeComponent(c.name, normalizeComponentKey(c.name), { source: "github", name: c.name, path: c.path }, map);
+  try {
+    const github = await discoverGithubComponents(cfg);
+    report.githubCount = github.length;
+    for (const c of github) {
+      mergeComponent(c.name, normalizeComponentKey(c.name), { source: "github", name: c.name, path: c.path }, map);
+    }
+  } catch (err) {
+    report.githubError = (err as Error).message;
   }
 
-  const figma = await discoverFigmaComponents(store);
-  for (const c of figma) {
-    mergeComponent(c.name, normalizeComponentKey(c.name), { source: "figma", name: c.name, id: c.id }, map);
+  try {
+    const figma = await discoverFigmaComponents(store);
+    report.figmaCount = figma.length;
+    for (const c of figma) {
+      mergeComponent(c.name, normalizeComponentKey(c.name), { source: "figma", name: c.name, id: c.id }, map);
+    }
+  } catch (err) {
+    report.figmaError = (err as Error).message;
   }
 
   // Preserve any existing rules (by key) and prefer the GitHub label when both exist.
@@ -87,7 +108,8 @@ export async function buildRegistry(cfg: GitHubConfig, store: SpecStore, existin
     if (gh) entry.label = gh.name;
   }
 
-  return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const entries = [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  return { entries, report };
 }
 
 // Build the markdown rules doc an agent reads: static preamble + one section per

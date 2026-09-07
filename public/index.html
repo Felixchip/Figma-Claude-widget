@@ -500,7 +500,12 @@ document.getElementById("btn-components-sync").addEventListener("click", async (
     const d = await r.json();
     if (!r.ok) { rulesStatus.textContent = d.error || "Sync failed."; return; }
     renderComponents(d.components);
-    rulesStatus.textContent = "Synced from Figma + GitHub.";
+    const rep = d.report || {};
+    let msg = `Synced. GitHub: ${rep.githubCount ?? "?"} component(s), Figma: ${rep.figmaCount ?? "?"}.`;
+    if (rep.figmaTokenConfigured === false) msg += " Figma token not configured.";
+    if (rep.figmaError) msg += ` Figma error: ${rep.figmaError}`;
+    if (rep.githubError) msg += ` GitHub error: ${rep.githubError}`;
+    rulesStatus.textContent = msg;
   } catch (e) {
     rulesStatus.textContent = "Sync failed: " + e.message;
   }
