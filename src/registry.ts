@@ -1,6 +1,6 @@
 import type { GitHubConfig } from "./github.js";
 import { getRepoTree, looksLikeComponentFile } from "./github.js";
-import { figmaFile, extractComponents } from "./figma.js";
+import { figmaFile, extractComponents, figmaEnvToken, figmaEnvFileKey } from "./figma.js";
 import type { SpecStore } from "./store.js";
 
 export type ComponentSource =
@@ -40,9 +40,10 @@ export async function discoverGithubComponents(cfg: GitHubConfig): Promise<{ nam
 }
 
 export async function discoverFigmaComponents(store: SpecStore): Promise<{ name: string; id: string }[]> {
-  const s = await store.getFigmaSettings();
-  const token = s?.token;
-  const fileKey = s?.fileKey;
+  // Resolve the effective Figma config: web-UI/OAuth settings first, then env vars.
+  const db = await store.getFigmaSettings();
+  const token = db?.token || figmaEnvToken();
+  const fileKey = db?.fileKey || figmaEnvFileKey();
   if (!token || !fileKey) return [];
   try {
     const file = await figmaFile(token, fileKey);
