@@ -1,7 +1,7 @@
 {
   "name": "design-system-mcp",
   "version": "0.2.0",
-  "description": "A design-system MCP that gives AI agents the real Figma components and SwiftUI code to design and build on-brand iOS interfaces.",
+  "description": "Unified MCP server + web UI: reads Figma product specs and the GitHub components repo so agents build on-brand interfaces.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

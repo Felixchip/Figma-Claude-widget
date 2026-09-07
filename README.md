@@ -1,6 +1,6 @@
 # CMC Build Kit
 
-A design-system MCP that gives AI agents the real Figma components and SwiftUI code to design and build on-brand iOS interfaces.
+One MCP server + web UI that gives your agents (Claude, DeepSeek, ChatGPT) everything they need to design and build **on-brand** interfaces:
 
 - **Figma design library** connected by an admin (`get_figma_library`, `list_figma_components`, `get_figma_component`, `get_figma_tokens`)
 - **Product specs** published from the Figma widget (`list_specs`, `get_spec`)
