@@ -40,6 +40,8 @@ export interface SpecStore {
   saveUsageRules(rules: string): Promise<void>;
   getRegistry(): Promise<unknown[]>;
   saveRegistry(entries: unknown[]): Promise<void>;
+  getAliases(): Promise<unknown[]>;
+  saveAliases(aliases: unknown[]): Promise<void>;
 }
 
 function toSpec(row: any): Spec {
@@ -160,6 +162,21 @@ class PostgresStore implements SpecStore {
     await this.setSetting("component_registry", JSON.stringify(entries));
   }
 
+  async getAliases(): Promise<unknown[]> {
+    const raw = await this.getSetting("component_aliases");
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveAliases(aliases: unknown[]): Promise<void> {
+    await this.setSetting("component_aliases", JSON.stringify(aliases));
+  }
+
   async list(): Promise<SpecRow[]> {
     const res = await this.pool.query(
       "SELECT id, node_id, updated_at FROM specs ORDER BY updated_at DESC"
@@ -273,6 +290,21 @@ class MemoryStore implements SpecStore {
 
   async saveRegistry(entries: unknown[]): Promise<void> {
     this.settings.set("component_registry", JSON.stringify(entries));
+  }
+
+  async getAliases(): Promise<unknown[]> {
+    const raw = this.settings.get("component_aliases");
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveAliases(aliases: unknown[]): Promise<void> {
+    this.settings.set("component_aliases", JSON.stringify(aliases));
   }
 }
 

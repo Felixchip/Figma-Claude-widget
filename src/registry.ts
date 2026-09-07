@@ -3,6 +3,8 @@ import { getRepoTree, looksLikeComponentFile } from "./github.js";
 import { figmaFile, extractComponents, figmaEnvToken, figmaEnvFileKey } from "./figma.js";
 import type { SpecStore } from "./store.js";
 
+export type ComponentAlias = { figma: string; github: string };
+
 export type ComponentSource =
   | { source: "figma"; name: string; id: string }
   | { source: "github"; name: string; path: string };
@@ -14,12 +16,43 @@ export type ComponentEntry = {
   rule: string;
 };
 
+// Tokens that describe a component's container/kind and are commonly appended or
+// dropped inconsistently between Figma and code ("Toggle" vs "Toggle switch",
+// "Navigation bar" vs "NavBar"). Removing them lets those names unify.
+const KIND_STOPWORDS = [
+  "switch",
+  "control",
+  "component",
+  "element",
+  "container",
+  "icon",
+  "button",
+  "bar",
+  "view",
+  "item",
+  "group",
+];
+
 // Normalize a component name to a stable merge key: lowercase, strip a leading
-// "gsa" prefix, and drop non-alphanumerics. e.g. "GSAButton" -> "button",
-// Figma "Button" -> "button", "GSARangeSlider" -> "rangeslider".
+// "gsa" prefix, drop non-alphanumerics, then strip trailing kind-qualifiers
+// (e.g. "Toggle switch" -> "toggle"). A qualifier is only removed when a
+// meaningful stem remains, so single-word names like "Button" survive.
 export function normalizeComponentKey(name: string): string {
   let s = name.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (s.startsWith("gsa")) s = s.slice(3);
+
+  for (const w of KIND_STOPWORDS) {
+    if (s.endsWith(w) && s.length - w.length >= 3) {
+      s = s.slice(0, -w.length);
+      break; // only strip one trailing qualifier
+    }
+  }
+
+  // Drop a trailing plural "s" (but not for words like "status"/"news").
+  if (s.endsWith("s") && !s.endsWith("ss") && s.length > 3) {
+    s = s.slice(0, -1);
+  }
+
   return s;
 }
 
@@ -66,10 +99,13 @@ function mergeComponent(label: string, key: string, src: ComponentSource, map: M
 
 // Build the canonical component registry from the live sources. Stored rules are
 // layered back on by key so previously-entered guidance survives re-syncs.
+// `aliases` lets the admin force a Figma name to share the entry of a GitHub name
+// (e.g. "Toggle switch" -> "GSA Toggle") when the heuristic does not merge them.
 export async function buildRegistry(
   cfg: GitHubConfig,
   store: SpecStore,
-  existing: ComponentEntry[]
+  existing: ComponentEntry[],
+  aliases: ComponentAlias[] = []
 ): Promise<{ entries: ComponentEntry[]; report: SyncReport }> {
   const map = new Map<string, ComponentEntry>();
   const report: SyncReport = {
@@ -79,11 +115,24 @@ export async function buildRegistry(
     figmaFileConfigured: !!(figmaEnvFileKey() || (await store.getFigmaSettings())?.fileKey),
   };
 
+  // Build alias lookup: figma display name -> canonical key to merge into.
+  const aliasToKey = new Map<string, string>();
+  for (const a of aliases) {
+    if (a.figma.trim() && a.github.trim()) {
+      aliasToKey.set(normalizeComponentKey(a.figma.trim()), normalizeComponentKey(a.github.trim()));
+    }
+  }
+  const keyFor = (name: string, source: "figma" | "github") => {
+    const k = normalizeComponentKey(name);
+    if (source === "figma" && aliasToKey.has(k)) return aliasToKey.get(k)!;
+    return k;
+  };
+
   try {
     const github = await discoverGithubComponents(cfg);
     report.githubCount = github.length;
     for (const c of github) {
-      mergeComponent(c.name, normalizeComponentKey(c.name), { source: "github", name: c.name, path: c.path }, map);
+      mergeComponent(c.name, keyFor(c.name, "github"), { source: "github", name: c.name, path: c.path }, map);
     }
   } catch (err) {
     report.githubError = (err as Error).message;
@@ -93,7 +142,7 @@ export async function buildRegistry(
     const figma = await discoverFigmaComponents(store);
     report.figmaCount = figma.length;
     for (const c of figma) {
-      mergeComponent(c.name, normalizeComponentKey(c.name), { source: "figma", name: c.name, id: c.id }, map);
+      mergeComponent(c.name, keyFor(c.name, "figma"), { source: "figma", name: c.name, id: c.id }, map);
     }
   } catch (err) {
     report.figmaError = (err as Error).message;

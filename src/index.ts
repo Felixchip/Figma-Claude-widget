@@ -19,7 +19,7 @@ import {
   runTool,
 } from "./tools.js";
 import { RULES_PREAMBLE, RULES_RESOURCE_URI } from "./rules.js";
-import { buildRegistry, rulesToMarkdown, normalizeComponentKey, type ComponentEntry } from "./registry.js";
+import { buildRegistry, rulesToMarkdown, normalizeComponentKey, type ComponentEntry, type ComponentAlias } from "./registry.js";
 import {
   exchangeFigmaCode,
   figmaAuthUrl,
@@ -73,8 +73,12 @@ function toContent(result: { text: string; isError?: boolean }) {
 async function fullRules(): Promise<string> {
   // Use the stored registry if present; otherwise build once from live sources.
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [])).entries;
+  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [], await loadAliases())).entries;
   return rulesToMarkdown(RULES_PREAMBLE, entries);
+}
+
+async function loadAliases(): Promise<ComponentAlias[]> {
+  return (await store.getAliases()) as ComponentAlias[];
 }
 
 // All tools are read-only: they read the design library, the components repo, and
@@ -537,7 +541,8 @@ function isAdmin(req: express.Request): boolean {
 // Rebuild the registry from live Figma + GitHub sources, preserving stored rules.
 async function syncRegistry(): Promise<{ entries: ComponentEntry[]; report: any }> {
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const { entries, report } = await buildRegistry(githubCfg, store, existing);
+  const aliases = await loadAliases();
+  const { entries, report } = await buildRegistry(githubCfg, store, existing, aliases);
   await store.saveRegistry(entries as unknown as unknown[]);
   return { entries, report };
 }
@@ -545,8 +550,27 @@ async function syncRegistry(): Promise<{ entries: ComponentEntry[]; report: any 
 // GET /api/components — the registry (merged Figma+GitHub) with rules, sources.
 app.get("/api/components", async (_req, res) => {
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [])).entries;
+  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [], await loadAliases())).entries;
   res.json({ components: entries });
+});
+
+// GET /api/aliases — the admin-defined Figma<->GitHub merge overrides.
+app.get("/api/aliases", async (_req, res) => {
+  res.json({ aliases: await loadAliases() });
+});
+
+// PUT /api/aliases — replace the full alias list (admin).
+app.put("/api/aliases", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  const raw = Array.isArray(req.body?.aliases) ? req.body.aliases : [];
+  const aliases = raw
+    .map((a: any) => ({ figma: String(a?.figma ?? "").trim(), github: String(a?.github ?? "").trim() }))
+    .filter((a: ComponentAlias) => a.figma && a.github);
+  await store.saveAliases(aliases as unknown as unknown[]);
+  res.json({ ok: true, aliases });
 });
 
 // POST /api/components/sync — refresh the registry from live sources (admin).

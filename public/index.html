@@ -206,6 +206,15 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <span id="rules-status" style="font-size:13px;color:var(--muted)"></span>
       </div>
       <div id="components-editor" style="margin-top:16px"></div>
+      <details style="margin-top:16px;border-top:1px solid var(--outline5);padding-top:12px">
+        <summary style="cursor:pointer;font-weight:600">Manual Figma ↔ GitHub name matches</summary>
+        <p style="font-size:13px;color:var(--muted);margin-top:8px">When the automatic matching doesn't join a Figma component to its GitHub component, add one line per pair: <code>Figma name = GitHub name</code>. Save then Sync.</p>
+        <textarea id="aliases-editor" placeholder="Toggle switch = GSA Toggle&#10;Radio button = GSARadioButton" style="min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+        <div class="toolbar" style="margin-top:8px">
+          <button id="btn-aliases-save" class="secondary">Save name matches</button>
+          <span id="aliases-status" style="font-size:13px;color:var(--muted)"></span>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -315,7 +324,7 @@ document.querySelectorAll("nav a").forEach(a => {
     const id = a.getAttribute("href").slice(1);
     document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
-    if (id === "settings") loadComponents();
+    if (id === "settings") { loadComponents(); loadAliases(); }
   });
 });
 
@@ -548,6 +557,39 @@ document.getElementById("btn-components-sync").addEventListener("click", async (
     rulesStatus.textContent = msg;
   } catch (e) {
     rulesStatus.textContent = "Sync failed: " + e.message;
+  }
+});
+
+// name-match aliases editor
+const aliasesStatus = document.getElementById("aliases-status");
+async function loadAliases() {
+  try {
+    const r = await fetch(mcpUrl + "/api/aliases");
+    const d = await r.json();
+    const text = (d.aliases || []).map(a => `${a.figma} = ${a.github}`).join("\n");
+    document.getElementById("aliases-editor").value = text;
+  } catch (e) {
+    aliasesStatus.textContent = "Failed to load: " + e.message;
+  }
+}
+document.getElementById("btn-aliases-save").addEventListener("click", async () => {
+  const lines = document.getElementById("aliases-editor").value.split("\n").map(l => l.trim()).filter(Boolean);
+  const aliases = lines.map(l => {
+    const m = l.split("=");
+    return { figma: (m[0] || "").trim(), github: (m[1] || "").trim() };
+  }).filter(a => a.figma && a.github);
+  aliasesStatus.textContent = "Saving…";
+  try {
+    const r = await fetch(mcpUrl + "/api/aliases", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ aliases })
+    });
+    const d = await r.json();
+    if (!r.ok) { aliasesStatus.textContent = d.error || "Save failed."; return; }
+    aliasesStatus.textContent = `Saved ${aliases.length} match(es). Click Sync to apply.`;
+  } catch (e) {
+    aliasesStatus.textContent = "Save failed: " + e.message;
   }
 });
 </script>
