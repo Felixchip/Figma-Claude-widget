@@ -96,6 +96,18 @@
   .codehead { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
   .codehead button { padding: 6px 14px; font-size: 12px; }
   .copied { color: var(--green); font-size: 12px; margin-left: 8px; }
+  .acc-item { border: 1px solid var(--outline2); border-radius: 8px; margin-bottom: 8px; background: var(--content1); overflow: hidden; }
+  .acc-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: none; border: none; cursor: pointer; text-align: left; color: var(--text); font-size: 14px; border-radius: 0; }
+  .acc-head:hover { background: var(--fill1); }
+  .acc-title { font-weight: 600; }
+  .acc-meta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .acc-src { font-size: 12px; color: var(--muted); }
+  .acc-state { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-pill); }
+  .acc-def { background: var(--primary1); color: var(--primary2); }
+  .acc-empty { background: var(--fill3); color: var(--content-secondary); }
+  .acc-chev { color: var(--muted); font-size: 14px; }
+  .acc-body { padding: 12px 14px; border-top: 1px solid var(--outline5); }
+  .acc-body textarea { width: 100%; }
   footer { border-top: 1px solid var(--border); padding: 24px 32px; text-align: center; color: var(--muted); font-size: 13px; }
   footer .brand { color: var(--primary3); font-weight: 700; }
 </style>
@@ -440,20 +452,43 @@ async function renderComponents(components) {
     el.innerHTML = '<p style="color:var(--muted)">No components yet. Click <b>Sync from Figma + GitHub</b> to discover them (needs Figma + GITHUB_REPO configured).</p>';
     return;
   }
-  let html = '<table style="width:100%;border-collapse:collapse">';
-  html += '<tr style="text-align:left;color:var(--muted);font-size:12px"><th style="padding:6px">Component</th><th style="padding:6px">Source</th><th style="padding:6px">Usage rule (markdown)</th></tr>';
-  registryComponents.forEach(c => {
-    html += `<tr style="border-top:1px solid var(--outline5);vertical-align:top">
-      <td style="padding:8px;font-weight:600;white-space:nowrap">${c.label}</td>
-      <td style="padding:8px;font-size:12px;color:var(--muted);white-space:nowrap">${sourceBadge(c.sources)}</td>
-      <td style="padding:8px">
-        <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:60px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
-        <div style="margin-top:4px"><button class="secondary" data-save="${c.key}" style="padding:4px 12px;font-size:12px">Save</button> <span data-status="${c.key}" style="font-size:12px;color:var(--muted)"></span></div>
-      </td>
-    </tr>`;
+  let html = '';
+  registryComponents.forEach((c, i) => {
+    const hasRule = (c.rule || "").trim().length > 0;
+    const stateLabel = hasRule ? "Rule defined" : "No rule yet";
+    const stateClass = hasRule ? "acc-def" : "acc-empty";
+    html += `
+    <div class="acc-item">
+      <button class="acc-head" data-acc="${c.key}" aria-expanded="false">
+        <span class="acc-title">${c.label}</span>
+        <span class="acc-meta">
+          <span class="acc-src">${sourceBadge(c.sources)}</span>
+          <span class="acc-state ${stateClass}">${stateLabel}</span>
+        </span>
+        <span class="acc-chev">▾</span>
+      </button>
+      <div class="acc-body" data-body="${c.key}" hidden>
+        <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:80px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
+        <div style="margin-top:6px">
+          <button class="secondary" data-save="${c.key}" style="padding:4px 12px;font-size:12px">Save rule</button>
+          <span data-status="${c.key}" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+      </div>
+    </div>`;
   });
-  html += '</table>';
   el.innerHTML = html;
+
+  // Accordion toggle
+  el.querySelectorAll(".acc-head").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-acc");
+      const body = el.querySelector(`[data-body="${key}"]`);
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", expanded ? "false" : "true");
+      body.hidden = expanded;
+      btn.querySelector(".acc-chev").textContent = expanded ? "▾" : "▴";
+    });
+  });
 
   el.querySelectorAll("[data-save]").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -470,6 +505,11 @@ async function renderComponents(components) {
         const d = await r.json();
         if (!r.ok) { status.textContent = d.error || "Save failed."; return; }
         status.textContent = "Saved.";
+        const head = el.querySelector(`[data-acc="${key}"]`);
+        const state = head.querySelector(".acc-state");
+        const hasRule = (textarea.value || "").trim().length > 0;
+        state.textContent = hasRule ? "Rule defined" : "No rule yet";
+        state.className = "acc-state " + (hasRule ? "acc-def" : "acc-empty");
       } catch (e) {
         status.textContent = "Failed: " + e.message;
       }
