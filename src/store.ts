@@ -38,6 +38,8 @@ export interface SpecStore {
   clearFigmaSettings(): Promise<void>;
   getUsageRules(): Promise<string | undefined>;
   saveUsageRules(rules: string): Promise<void>;
+  getFoundation(): Promise<string | undefined>;
+  saveFoundation(foundation: string): Promise<void>;
   getRegistry(): Promise<unknown[]>;
   saveRegistry(entries: unknown[]): Promise<void>;
   getAliases(): Promise<unknown[]>;
@@ -145,6 +147,14 @@ class PostgresStore implements SpecStore {
 
   async saveUsageRules(rules: string): Promise<void> {
     await this.setSetting("usage_rules", rules);
+  }
+
+  async getFoundation(): Promise<string | undefined> {
+    return this.getSetting("system_foundation");
+  }
+
+  async saveFoundation(foundation: string): Promise<void> {
+    await this.setSetting("system_foundation", foundation);
   }
 
   async getRegistry(): Promise<unknown[]> {
@@ -275,6 +285,14 @@ class MemoryStore implements SpecStore {
 
   async saveUsageRules(rules: string): Promise<void> {
     this.settings.set("usage_rules", rules);
+  }
+
+  async getFoundation(): Promise<string | undefined> {
+    return this.settings.get("system_foundation");
+  }
+
+  async saveFoundation(foundation: string): Promise<void> {
+    this.settings.set("system_foundation", foundation);
   }
 
   async getRegistry(): Promise<unknown[]> {

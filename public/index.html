@@ -108,6 +108,10 @@
   .acc-chev { color: var(--muted); font-size: 14px; }
   .acc-body { padding: 12px 14px; border-top: 1px solid var(--outline5); }
   .acc-body textarea { width: 100%; }
+  .subtabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .subtab { background: var(--content1); border: 1px solid var(--outline2); color: var(--muted); border-radius: var(--radius-pill); padding: 8px 16px; font-size: 14px; }
+  .subtab:hover { border-color: var(--primary3); color: var(--primary3); }
+  .subtab.active { background: var(--primary1); border-color: var(--primary3); color: var(--primary2); }
   footer { border-top: 1px solid var(--border); padding: 24px 32px; text-align: center; color: var(--muted); font-size: 13px; }
   footer .brand { color: var(--primary3); font-weight: 700; }
 </style>
@@ -163,58 +167,86 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
 
   <section id="settings" class="hidden">
     <h2>Settings</h2>
-    <p>These are the component sources.</p>
+    <div class="subtabs" role="tablist">
+      <button class="subtab active" data-subtab="settings-home" role="tab">Sources</button>
+      <button class="subtab" data-subtab="settings-rules" role="tab">Component rules</button>
+      <button class="subtab" data-subtab="settings-foundation" role="tab">Foundation</button>
+    </div>
 
-    <div class="card">
-      <h3>Figma design library</h3>
-      <div id="figma-connected" class="hidden">
-        <p id="figma-info" style="margin-bottom:8px"></p>
-        <div id="figma-verify" style="margin-top:8px;display:none">
-          <span class="status" id="figma-verify-status"><span class="dot"></span><span id="figma-verify-text">Verifying…</span></span>
-          <p id="figma-verify-detail" style="margin-top:6px;font-size:13px;color:var(--muted)"></p>
+    <div id="settings-home" class="subpanel">
+      <div class="card">
+        <h3>Figma design library</h3>
+        <div id="figma-connected" class="hidden">
+          <p id="figma-info" style="margin-bottom:8px"></p>
+          <div id="figma-verify" style="margin-top:8px;display:none">
+            <span class="status" id="figma-verify-status"><span class="dot"></span><span id="figma-verify-text">Verifying…</span></span>
+            <p id="figma-verify-detail" style="margin-top:6px;font-size:13px;color:var(--muted)"></p>
+          </div>
+        </div>
+        <div id="figma-not-connected" class="hidden">
+          <p style="margin-bottom:12px">Connect a Figma source to expose the design library to agents.</p>
+          <button id="btn-figma-connect">Connect with OAuth</button>
+          <p id="figma-err" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
+          <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+          <label for="figma-pat">Or paste a Figma personal access token</label>
+          <div class="toolbar">
+            <input type="password" id="figma-pat" placeholder="figd_xxxx…" style="flex:1">
+            <button id="btn-figma-pat">Connect</button>
+          </div>
+          <p id="figma-pat-status" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
         </div>
       </div>
-      <div id="figma-not-connected" class="hidden">
-        <p style="margin-bottom:12px">Connect a Figma source to expose the design library to agents.</p>
-        <button id="btn-figma-connect">Connect with OAuth</button>
-        <p id="figma-err" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
-        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
-        <label for="figma-pat">Or paste a Figma personal access token</label>
-        <div class="toolbar">
-          <input type="password" id="figma-pat" placeholder="figd_xxxx…" style="flex:1">
-          <button id="btn-figma-pat">Connect</button>
-        </div>
-        <p id="figma-pat-status" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
+
+      <div class="card">
+        <h3>GitHub components repo</h3>
+        <p id="repo-label">Repo: <em>not configured</em></p>
+        <p>The SwiftUI components agents use when building. Configured via <code>GITHUB_REPO</code> / <code>GITHUB_TOKEN</code>.</p>
+      </div>
+
+      <div class="card">
+        <h3>CMC Build Kit (this server)</h3>
+        <p>One MCP endpoint for everything: your Figma design library, your code components repo, the foundation, and per-component rules, so agents reuse real components instead of inventing them.</p>
+        <p class="pill">get_figma_library</p><p class="pill">list_figma_components</p><p class="pill">get_figma_component</p><p class="pill">get_figma_tokens</p><p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
       </div>
     </div>
 
-    <div class="card">
-      <h3>CMC Build Kit (this server)</h3>
-      <p id="repo-label">Repo: <em>not configured</em></p>
-      <p>One MCP endpoint for everything: your Figma design library, your product specs, your code components repo, and the mandatory design rules, so agents reuse real components instead of inventing them.</p>
-      <p class="pill">get_figma_library</p><p class="pill">list_figma_components</p><p class="pill">get_figma_component</p><p class="pill">get_figma_tokens</p><p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
+    <div id="settings-rules" class="subpanel hidden">
+      <div class="card">
+        <h3>Component usage rules</h3>
+        <p>Define a usage rule per component. Components are discovered automatically from the Figma library and the GitHub repo (matched by name). Empty until you define a rule. Agents read these via <code>list_rules</code> / <code>design://rules</code>.</p>
+        <label for="rules-admin-token">Admin token</label>
+        <input type="password" id="rules-admin-token" placeholder="ADMIN_TOKEN">
+        <div class="toolbar" style="margin-top:12px">
+          <button id="btn-components-load" class="secondary">Reload components</button>
+          <button id="btn-components-sync" class="secondary">Sync from Figma + GitHub</button>
+          <span id="rules-status" style="font-size:13px;color:var(--muted)"></span>
+        </div>
+        <div id="components-editor" style="margin-top:16px"></div>
+        <details style="margin-top:16px;border-top:1px solid var(--outline5);padding-top:12px">
+          <summary style="cursor:pointer;font-weight:600">Manual Figma ↔ GitHub name matches</summary>
+          <p style="font-size:13px;color:var(--muted);margin-top:8px">When the automatic matching doesn't join a Figma component to its GitHub component, add one line per pair: <code>Figma name = GitHub name</code>. Save then Sync.</p>
+          <textarea id="aliases-editor" placeholder="Toggle switch = GSA Toggle&#10;Radio button = GSARadioButton" style="min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+          <div class="toolbar" style="margin-top:8px">
+            <button id="btn-aliases-save" class="secondary">Save name matches</button>
+            <span id="aliases-status" style="font-size:13px;color:var(--muted)"></span>
+          </div>
+        </details>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>Component usage rules</h3>
-      <p>Define a usage rule per component. Components are discovered automatically from the Figma library and the GitHub repo (matched by name). Empty until you define a rule. Agents read these via <code>list_rules</code> / <code>design://rules</code>.</p>
-      <label for="rules-admin-token">Admin token</label>
-      <input type="password" id="rules-admin-token" placeholder="ADMIN_TOKEN">
-      <div class="toolbar" style="margin-top:12px">
-        <button id="btn-components-load" class="secondary">Reload components</button>
-        <button id="btn-components-sync" class="secondary">Sync from Figma + GitHub</button>
-        <span id="rules-status" style="font-size:13px;color:var(--muted)"></span>
-      </div>
-      <div id="components-editor" style="margin-top:16px"></div>
-      <details style="margin-top:16px;border-top:1px solid var(--outline5);padding-top:12px">
-        <summary style="cursor:pointer;font-weight:600">Manual Figma ↔ GitHub name matches</summary>
-        <p style="font-size:13px;color:var(--muted);margin-top:8px">When the automatic matching doesn't join a Figma component to its GitHub component, add one line per pair: <code>Figma name = GitHub name</code>. Save then Sync.</p>
-        <textarea id="aliases-editor" placeholder="Toggle switch = GSA Toggle&#10;Radio button = GSARadioButton" style="min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
-        <div class="toolbar" style="margin-top:8px">
-          <button id="btn-aliases-save" class="secondary">Save name matches</button>
-          <span id="aliases-status" style="font-size:13px;color:var(--muted)"></span>
+    <div id="settings-foundation" class="subpanel hidden">
+      <div class="card">
+        <h3>Foundation</h3>
+        <p>System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
+        <label for="foundation-admin-token">Admin token</label>
+        <input type="password" id="foundation-admin-token" placeholder="ADMIN_TOKEN">
+        <label for="foundation-editor" style="margin-top:12px">Foundation (markdown)</label>
+        <textarea id="foundation-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+        <div class="toolbar" style="margin-top:12px">
+          <button id="btn-foundation-save">Save foundation</button>
+          <span id="foundation-status" style="font-size:13px;color:var(--muted)"></span>
         </div>
-      </details>
+      </div>
     </div>
   </section>
 
@@ -324,9 +356,15 @@ document.querySelectorAll("nav a").forEach(a => {
     const id = a.getAttribute("href").slice(1);
     document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
-    if (id === "settings") { loadComponents(); loadAliases(); }
+    if (id === "settings") { switchSubtab("settings-home"); refreshFigma(); loadComponents(); loadAliases(); loadFoundationEditor(); }
   });
 });
+
+// settings subtabs
+function switchSubtab(name) {
+  document.querySelectorAll(".subtab").forEach(b => b.classList.toggle("active", b.dataset.subtab === name));
+  document.querySelectorAll(".subpanel").forEach(p => p.classList.toggle("hidden", p.id !== name));
+}
 
 // brainstorm
 document.getElementById("btn-prompt").addEventListener("click", () => {
@@ -590,6 +628,40 @@ document.getElementById("btn-aliases-save").addEventListener("click", async () =
     aliasesStatus.textContent = `Saved ${aliases.length} match(es). Click Sync to apply.`;
   } catch (e) {
     aliasesStatus.textContent = "Save failed: " + e.message;
+  }
+});
+
+// subtab clicks
+document.querySelectorAll(".subtab").forEach(btn => {
+  btn.addEventListener("click", () => switchSubtab(btn.dataset.subtab));
+});
+
+// foundation editor
+const foundationStatus = document.getElementById("foundation-status");
+async function loadFoundationEditor() {
+  try {
+    const r = await fetch(mcpUrl + "/api/foundation");
+    const d = await r.json();
+    document.getElementById("foundation-editor").value = d.foundation;
+  } catch (e) {
+    foundationStatus.textContent = "Failed to load: " + e.message;
+  }
+}
+document.getElementById("btn-foundation-save").addEventListener("click", async () => {
+  const token = document.getElementById("foundation-admin-token").value.trim();
+  const foundation = document.getElementById("foundation-editor").value.trim();
+  foundationStatus.textContent = "Saving…";
+  try {
+    const r = await fetch(mcpUrl + "/api/foundation", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({ foundation })
+    });
+    const d = await r.json();
+    if (!r.ok) { foundationStatus.textContent = d.error || "Save failed."; return; }
+    foundationStatus.textContent = "Saved. Agents get the foundation on their next read.";
+  } catch (e) {
+    foundationStatus.textContent = "Save failed: " + e.message;
   }
 });
 </script>

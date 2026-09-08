@@ -18,7 +18,7 @@ import {
   TOOL_DEFS as GITHUB_TOOL_DEFS,
   runTool,
 } from "./tools.js";
-import { RULES_PREAMBLE, RULES_RESOURCE_URI } from "./rules.js";
+import { RULES_PREAMBLE, DEFAULT_FOUNDATION, RULES_RESOURCE_URI } from "./rules.js";
 import { buildRegistry, rulesToMarkdown, normalizeComponentKey, type ComponentEntry, type ComponentAlias } from "./registry.js";
 import {
   exchangeFigmaCode,
@@ -71,10 +71,16 @@ function toContent(result: { text: string; isError?: boolean }) {
 }
 
 async function fullRules(): Promise<string> {
-  // Use the stored registry if present; otherwise build once from live sources.
+  // Compose: static preamble (guardrails/platform/design-sense) + editable
+  // foundation + per-component rules.
   const existing = (await store.getRegistry()) as ComponentEntry[];
   const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [], await loadAliases())).entries;
-  return rulesToMarkdown(RULES_PREAMBLE, entries);
+  const foundation = (await store.getFoundation()) || DEFAULT_FOUNDATION;
+  return rulesToMarkdown(`${RULES_PREAMBLE}\n\n${foundation.trim()}`, entries);
+}
+
+async function loadFoundation(): Promise<string> {
+  return (await store.getFoundation()) || DEFAULT_FOUNDATION;
 }
 
 async function loadAliases(): Promise<ComponentAlias[]> {
@@ -571,6 +577,26 @@ app.put("/api/aliases", async (req, res) => {
     .filter((a: ComponentAlias) => a.figma && a.github);
   await store.saveAliases(aliases as unknown as unknown[]);
   res.json({ ok: true, aliases });
+});
+
+// GET /api/foundation — the editable system foundation doc (agents + web UI).
+app.get("/api/foundation", async (_req, res) => {
+  res.json({ foundation: await loadFoundation(), updated: !!(await store.getFoundation()) });
+});
+
+// PUT /api/foundation — replace the system foundation doc (admin).
+app.put("/api/foundation", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  const foundation = String(req.body?.foundation ?? "").trim();
+  if (!foundation) {
+    res.status(400).json({ error: "foundation cannot be empty." });
+    return;
+  }
+  await store.saveFoundation(foundation);
+  res.json({ ok: true });
 });
 
 // POST /api/components/sync — refresh the registry from live sources (admin).

@@ -37,6 +37,30 @@ Do not stack components mechanically. A screen must read like a real iOS screen 
 8. **Match the Figma examples.** GSAComponentsExamples (OrderTicketScreen, WatchlistScreen) show how full screens are composed from these components. Read them for composition patterns before assembling a new screen.
 `.trim();
 
+// Editable system foundation shown to agents (after the preamble, before the
+// component rules). Admins can replace it at runtime from the web UI.
+export const DEFAULT_FOUNDATION = `
+# System Foundation
+
+The GSA design system is built on a small set of iOS-native principles. Follow these when composing screens.
+
+## Principles
+
+1. **Native iOS first.** Build with SwiftUI primitives and the platform's own behavior (navigation, sheets, tab bars, haptics, Dynamic Type, dark mode). Do not impose web patterns on iOS.
+2. **One clear purpose per screen.** Decide the single task a user is here to do, and make the path to it obvious. Lead with the content that matters most.
+3. **Hierarchy through type, weight, and spacing**, not decoration. Size and color already carry meaning; do not add chrome.
+4. **Consistency is trust.** Reuse the same component, token, and pattern for the same job everywhere. When a pattern already exists in the design system, match it rather than inventing a variation.
+5. **Financial data is read, not hunted.** Present numbers crisply with tabular figures and consistent alignment so prices and deltas scan instantly. Calm beats clever in market UI.
+6. **Accessibility is not optional.** Respect Dynamic Type, contrast, touch targets (44pt), and VoiceOver grouping. Never rely on color alone to convey meaning.
+7. **Design the whole journey.** Empty, loading, error, and edge states are part of the design. If the system does not model a needed state, ask before improvising.
+
+## Working with the design system
+
+- Components are the vocabulary; tokens (color, spacing, radius, type) are the grammar. Compose with both, never hardcode either.
+- If a screen needs something the system does not have, that is a gap to raise with the user, not a license to invent.
+- When in doubt about how two elements relate, look at how the existing GSAComponentsExample screens compose them.
+`.trim();
+
 // Default per-component usage rules. This is the editable blob: an admin can
 // replace it at runtime from the web UI without a code change or redeploy.
 export const DEFAULT_USAGE_RULES = `
