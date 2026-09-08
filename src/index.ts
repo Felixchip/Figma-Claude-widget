@@ -556,7 +556,13 @@ async function syncRegistry(): Promise<{ entries: ComponentEntry[]; report: any 
 // GET /api/components — the registry (merged Figma+GitHub) with rules, sources.
 app.get("/api/components", async (_req, res) => {
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [], await loadAliases())).entries;
+  let entries = existing;
+  if (!entries.length) {
+    // First access: build from live sources and persist so a reload is stable.
+    const built = await buildRegistry(githubCfg, store, [], await loadAliases());
+    entries = built.entries;
+    await store.saveRegistry(entries as unknown as unknown[]);
+  }
   res.json({ components: entries });
 });
 
