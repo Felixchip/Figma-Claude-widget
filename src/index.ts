@@ -801,6 +801,13 @@ app.use(express.static(PUBLIC_DIR, {
   },
 }));
 
+// SPA fallback: serve index.html for any non-API route so real URLs
+// (e.g. /settings/foundation) work and can be deep-linked.
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/") || req.path.startsWith("/mcp")) return next();
+  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
+});
+
 // --- Boot -------------------------------------------------------------------
 
 async function main() {

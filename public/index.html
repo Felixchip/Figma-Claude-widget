@@ -122,9 +122,9 @@
   <span class="brand-divider">|</span>
   <span class="brand-sub">Build kit</span>
   <nav>
-    <a href="#overview" class="active">Overview</a>
-    <a href="#settings">Settings</a>
-    <a href="#brainstorm">Brainstorm</a>
+    <a href="/" class="active" data-route="overview">Overview</a>
+    <a href="/settings" data-route="settings">Settings</a>
+    <a href="/brainstorm" data-route="brainstorm">Brainstorm</a>
   </nav>
 </header>
 
@@ -347,24 +347,67 @@ async function checkStatus() {
   }
 }
 
-// nav
+// routing
+const ROUTES = {
+  overview: { section: "overview", path: "/" },
+  settings: { section: "settings", path: "/settings" },
+  brainstorm: { section: "brainstorm", path: "/brainstorm" },
+};
+
+function showSection(sectionName) {
+  document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
+  const sec = document.getElementById(sectionName);
+  if (sec) sec.classList.remove("hidden");
+}
+
+function loadForRoute(route, subtab) {
+  showSection(route.section);
+  document.querySelectorAll("nav a").forEach(x => x.classList.toggle("active", x.dataset.route === route.section));
+  if (route.section === "settings") {
+    switchSubtab(subtab || "settings-home", true);
+    refreshFigma();
+    loadComponents();
+    loadAliases();
+    loadFoundationEditor();
+  }
+}
+
+function navigate(path, push = true) {
+  if (path === "/") return loadForRoute(ROUTES.overview, null);
+  if (path.startsWith("/settings")) {
+    const sub = { "/rules": "settings-rules", "/foundation": "settings-foundation" }[
+      path.replace(/^\/settings/, "").replace(/\/$/, "")
+    ];
+    return loadForRoute(ROUTES.settings, sub || "settings-home");
+  }
+  if (path.startsWith("/brainstorm")) return loadForRoute(ROUTES.brainstorm, null);
+  return loadForRoute(ROUTES.overview, null);
+}
+
+// top-level nav links use real URLs
 document.querySelectorAll("nav a").forEach(a => {
   a.addEventListener("click", e => {
     e.preventDefault();
-    document.querySelectorAll("nav a").forEach(x => x.classList.remove("active"));
-    a.classList.add("active");
-    const id = a.getAttribute("href").slice(1);
-    document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
-    document.getElementById(id).classList.remove("hidden");
-    if (id === "settings") { switchSubtab("settings-home"); refreshFigma(); loadComponents(); loadAliases(); loadFoundationEditor(); }
+    const path = a.getAttribute("href");
+    history.pushState({}, "", path);
+    navigate(path);
   });
 });
 
-// settings subtabs
-function switchSubtab(name) {
+// settings subtabs update the URL too
+function switchSubtab(name, silent) {
   document.querySelectorAll(".subtab").forEach(b => b.classList.toggle("active", b.dataset.subtab === name));
   document.querySelectorAll(".subpanel").forEach(p => p.classList.toggle("hidden", p.id !== name));
+  if (!silent) {
+    const path = name === "settings-rules" ? "/settings/rules"
+      : name === "settings-foundation" ? "/settings/foundation"
+      : "/settings";
+    history.pushState({}, "", path);
+  }
 }
+
+// handle back/forward
+window.addEventListener("popstate", () => navigate(window.location.pathname));
 
 // brainstorm
 document.getElementById("btn-prompt").addEventListener("click", () => {
@@ -473,6 +516,9 @@ if (new URLSearchParams(window.location.search).get("figma") === "connected") {
   history.replaceState({}, "", window.location.pathname);
   refreshFigma();
 }
+
+// route on load (support real URLs /settings/foundation etc.)
+navigate(window.location.pathname, false);
 
 checkStatus();
 refreshFigma();
