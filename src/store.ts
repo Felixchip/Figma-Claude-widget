@@ -28,6 +28,7 @@ export type FigmaSettings = {
 
 export interface SpecStore {
   ready: boolean;
+  readonly kind: "postgres" | "memory";
   init(): Promise<void>;
   list(): Promise<SpecRow[]>;
   get(id: string): Promise<Spec | undefined>;
@@ -64,6 +65,7 @@ function toSpec(row: any): Spec {
 
 class PostgresStore implements SpecStore {
   private pool: pg.Pool;
+  readonly kind = "postgres" as const;
   ready = false;
 
   constructor(connectionString: string) {
@@ -230,6 +232,7 @@ class PostgresStore implements SpecStore {
 class MemoryStore implements SpecStore {
   private specs = new Map<string, Spec>();
   private settings = new Map<string, string>();
+  readonly kind = "memory" as const;
   ready = true;
 
   async init(): Promise<void> {}

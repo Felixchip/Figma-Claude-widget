@@ -390,6 +390,7 @@ app.get("/api/status", async (_req, res) => {
     rules: "design://rules (list_rules tool)",
     figma: await figmaStatus,
     figmaTools: Object.keys(FIGMA_TOOL_DEFS),
+    storage: store.kind,
   });
 });
 
