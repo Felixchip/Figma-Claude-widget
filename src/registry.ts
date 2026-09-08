@@ -65,6 +65,17 @@ export type SyncReport = {
   figmaFileConfigured: boolean;
 };
 
+// True GSA UI components live under Sources/GSAComponents/Components/. Exclude
+// tokens, examples, previews, and derivative/support files (styles, support
+// helpers, presentation helpers) so the rules list is the real component set.
+function isRealGsaComponent(path: string, name: string): boolean {
+  if (!/Sources\/GSAComponents\/Components\//.test(path)) return false;
+  if (/^GSA/i.test(name)) {
+    if (/(Style|Support|Presentation|Previews)$/.test(name)) return false;
+  }
+  return true;
+}
+
 export async function discoverGithubComponents(cfg: GitHubConfig): Promise<{ name: string; path: string }[]> {
   if (!cfg.owner || !cfg.repo) return [];
   const files = await getRepoTree(cfg);
@@ -74,7 +85,7 @@ export async function discoverGithubComponents(cfg: GitHubConfig): Promise<{ nam
       name: f.path.split("/").pop()!.replace(/\.[^.]+$/, ""),
       path: f.path,
     }))
-    .filter((c) => !/^package$/.test(c.name.toLowerCase()));
+    .filter((c) => isRealGsaComponent(c.path, c.name));
 }
 
 export async function discoverFigmaComponents(store: SpecStore): Promise<{ name: string; id: string }[]> {
@@ -138,11 +149,17 @@ export async function buildRegistry(
     report.githubError = (err as Error).message;
   }
 
+  // Figma-only: only attach a Figma source when its key maps onto a component
+  // already found in the code repo (direct match or via an alias). This drops the
+  // raw Figma nodes (status bars, frames, "page", etc.) that have no code component.
   try {
     const figma = await discoverFigmaComponents(store);
     report.figmaCount = figma.length;
     for (const c of figma) {
-      mergeComponent(c.name, keyFor(c.name, "figma"), { source: "figma", name: c.name, id: c.id }, map);
+      const k = keyFor(c.name, "figma");
+      if (map.has(k)) {
+        mergeComponent(c.name, k, { source: "figma", name: c.name, id: c.id }, map);
+      }
     }
   } catch (err) {
     report.figmaError = (err as Error).message;
