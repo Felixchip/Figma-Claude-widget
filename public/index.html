@@ -255,10 +255,10 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <h3>Foundation</h3>
         <p>System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
         <div class="viewtoggle">
-          <button id="btn-foundation-edit" class="secondary active">Edit</button>
-          <button id="btn-foundation-preview" class="secondary">Preview</button>
+          <button id="btn-foundation-edit" class="secondary">Edit</button>
+          <button id="btn-foundation-preview" class="secondary active">Preview</button>
         </div>
-        <div id="foundation-edit-wrap">
+        <div id="foundation-edit-wrap" class="hidden">
           <label for="foundation-admin-token">Admin token</label>
           <input type="password" id="foundation-admin-token" placeholder="ADMIN_TOKEN">
           <label for="foundation-editor" style="margin-top:12px">Foundation (markdown)</label>
@@ -268,7 +268,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
             <span id="foundation-status" style="font-size:13px;color:var(--muted)"></span>
           </div>
         </div>
-        <div id="foundation-preview-wrap" class="hidden markdown-body"></div>
+        <div id="foundation-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
       </div>
     </div>
   </section>
@@ -785,6 +785,7 @@ async function loadFoundationEditor() {
     const d = await r.json();
     document.getElementById("foundation-editor").value = d.foundation;
     document.getElementById("foundation-preview-wrap").innerHTML = mdToHtml(d.foundation);
+    setFoundationView("preview");
   } catch (e) {
     foundationStatus.textContent = "Failed to load: " + e.message;
   }
