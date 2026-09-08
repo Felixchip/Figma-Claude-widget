@@ -546,9 +546,6 @@ if (new URLSearchParams(window.location.search).get("figma") === "connected") {
   refreshFigma();
 }
 
-// route on load (support real URLs /settings/foundation etc.)
-navigate(window.location.pathname, false);
-
 checkStatus();
 refreshFigma();
 
@@ -824,6 +821,10 @@ document.getElementById("btn-foundation-save").addEventListener("click", async (
     foundationStatus.textContent = "Save failed: " + e.message;
   }
 });
+
+// route on load (support real URLs /settings/foundation etc.) — run last so all
+// helpers/consts are initialized.
+navigate(window.location.pathname, false);
 </script>
 <footer>© <span class="brand">CMCMarkets</span> · CMC Build Kit</footer>
 </body>
