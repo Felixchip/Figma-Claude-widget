@@ -109,10 +109,10 @@
   .acc-chev { color: var(--muted); font-size: 14px; }
   .acc-body { padding: 12px 14px; border-top: 1px solid var(--outline5); }
   .acc-body textarea { width: 100%; }
-  .subtabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-  .subtab { background: var(--content1); border: 1px solid var(--outline2); color: var(--muted); border-radius: var(--radius-pill); padding: 8px 16px; font-size: 14px; cursor: pointer; transition: color .15s ease, background .15s ease, border-color .15s ease; }
-  .subtab:hover { background: var(--primary1); border-color: var(--primary4); color: var(--primary3); }
-  .subtab.active { background: var(--primary1); border-color: var(--primary3); color: var(--primary2); font-weight: 600; }
+  .subtabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--outline2); flex-wrap: wrap; }
+  .subtab { background: none; border: none; color: var(--muted); padding: 10px 14px; font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s ease, border-color .15s ease; }
+  .subtab:hover { color: var(--primary3); }
+  .subtab.active { color: var(--primary2); font-weight: 600; border-bottom-color: var(--primary3); }
   .viewtoggle { display: flex; gap: 8px; margin: 12px 0; }
   .viewtoggle button { transition: color .15s ease, background .15s ease, border-color .15s ease; }
   .viewtoggle button:hover { background: var(--primary1); border-color: var(--primary4); color: var(--primary3); }
