@@ -16,6 +16,38 @@ export type ComponentEntry = {
   rule: string;
 };
 
+// The known GSA UI components (from Sources/GSAComponents/Components/). Seeding
+// the registry with these means the rules list is always shown and stable, even
+// before live Figma/GitHub discovery has run or while it's temporarily down.
+// Live discovery enriches these (adds the matching Figma source) and adds any
+// genuinely new component files it finds.
+const DEFAULT_COMPONENTS = [
+  "GSAButton",
+  "GSAChangeIndicator",
+  "GSACheckbox",
+  "GSAChip",
+  "GSAFlag",
+  "GSAInstrumentRow",
+  "GSARadioButton",
+  "GSASegmentedControl",
+  "GSASheetToolbar",
+  "GSASlider",
+  "GSARangeSlider",
+  "GSASparkline",
+  "GSATabBar",
+  "GSATextField",
+  "GSAToggle",
+];
+
+function defaultEntry(name: string): ComponentEntry {
+  return {
+    key: normalizeComponentKey(name),
+    label: name,
+    sources: [{ source: "github", name, path: `Sources/GSAComponents/Components/${name}/${name}.swift` }],
+    rule: "",
+  };
+}
+
 // Tokens that describe a component's container/kind and are commonly appended or
 // dropped inconsistently between Figma and code ("Toggle" vs "Toggle switch",
 // "Navigation bar" vs "NavBar"). Removing them lets those names unify.
@@ -118,7 +150,12 @@ export async function buildRegistry(
   existing: ComponentEntry[],
   aliases: ComponentAlias[] = []
 ): Promise<{ entries: ComponentEntry[]; report: SyncReport }> {
+  // Always seed from the known GSA components so the list is never empty.
   const map = new Map<string, ComponentEntry>();
+  for (const name of DEFAULT_COMPONENTS) {
+    const e = defaultEntry(name);
+    map.set(e.key, e);
+  }
   const report: SyncReport = {
     githubCount: 0,
     figmaCount: 0,
