@@ -112,6 +112,22 @@
   .subtab { background: var(--content1); border: 1px solid var(--outline2); color: var(--muted); border-radius: var(--radius-pill); padding: 8px 16px; font-size: 14px; }
   .subtab:hover { border-color: var(--primary3); color: var(--primary3); }
   .subtab.active { background: var(--primary1); border-color: var(--primary3); color: var(--primary2); }
+  .viewtoggle { display: flex; gap: 8px; margin: 12px 0; }
+  .viewtoggle button.active { background: var(--primary1); color: var(--primary2); border-color: var(--primary3); }
+  .markdown-body { line-height: 1.7; color: var(--text); }
+  .markdown-body h1 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
+  .markdown-body h2 { font-size: 18px; font-weight: 700; margin: 20px 0 8px; }
+  .markdown-body h3 { font-size: 16px; font-weight: 600; margin: 16px 0 6px; }
+  .markdown-body h4 { font-size: 15px; font-weight: 600; margin: 12px 0 4px; }
+  .markdown-body p { margin: 0 0 12px; color: var(--text); }
+  .markdown-body strong { color: var(--text); font-weight: 700; }
+  .markdown-body ul, .markdown-body ol { margin: 0 0 12px; padding-left: 22px; }
+  .markdown-body li { margin-bottom: 6px; }
+  .markdown-body li > ul, .markdown-body li > ol { margin-top: 6px; }
+  .markdown-body code { background: var(--fill3); color: var(--text); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+  .markdown-body blockquote { border-left: 3px solid var(--primary4); margin: 0 0 12px; padding: 2px 14px; color: var(--muted); }
+  .markdown-body hr { border: none; border-top: 1px solid var(--outline2); margin: 18px 0; }
+  .markdown-body a { color: var(--primary3); }
   footer { border-top: 1px solid var(--border); padding: 24px 32px; text-align: center; color: var(--muted); font-size: 13px; }
   footer .brand { color: var(--primary3); font-weight: 700; }
 </style>
@@ -238,14 +254,21 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       <div class="card">
         <h3>Foundation</h3>
         <p>System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
-        <label for="foundation-admin-token">Admin token</label>
-        <input type="password" id="foundation-admin-token" placeholder="ADMIN_TOKEN">
-        <label for="foundation-editor" style="margin-top:12px">Foundation (markdown)</label>
-        <textarea id="foundation-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
-        <div class="toolbar" style="margin-top:12px">
-          <button id="btn-foundation-save">Save foundation</button>
-          <span id="foundation-status" style="font-size:13px;color:var(--muted)"></span>
+        <div class="viewtoggle">
+          <button id="btn-foundation-edit" class="secondary active">Edit</button>
+          <button id="btn-foundation-preview" class="secondary">Preview</button>
         </div>
+        <div id="foundation-edit-wrap">
+          <label for="foundation-admin-token">Admin token</label>
+          <input type="password" id="foundation-admin-token" placeholder="ADMIN_TOKEN">
+          <label for="foundation-editor" style="margin-top:12px">Foundation (markdown)</label>
+          <textarea id="foundation-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+          <div class="toolbar" style="margin-top:12px">
+            <button id="btn-foundation-save">Save foundation</button>
+            <span id="foundation-status" style="font-size:13px;color:var(--muted)"></span>
+          </div>
+        </div>
+        <div id="foundation-preview-wrap" class="hidden markdown-body"></div>
       </div>
     </div>
   </section>
@@ -684,11 +707,84 @@ document.querySelectorAll(".subtab").forEach(btn => {
 
 // foundation editor
 const foundationStatus = document.getElementById("foundation-status");
+
+// Minimal, safe markdown renderer for the foundation/component content.
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function inlineMd(s) {
+  let out = esc(s);
+  out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+  out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  out = out.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return out;
+}
+function mdToHtml(md) {
+  const lines = (md || "").split("\n");
+  let html = "";
+  let list = null; // 'ul' | 'ol' | null
+  let inCode = false;
+  let codeBuf = [];
+  function closeList() {
+    if (list) { html += `</${list}>`; list = null; }
+  }
+  for (let raw of lines) {
+    if (inCode) {
+      if (/^\s*```/.test(raw)) { inCode = false; html += "<pre><code>" + esc(codeBuf.join("\n")) + "</code></pre>"; codeBuf = []; }
+      else codeBuf.push(raw);
+      continue;
+    }
+    if (/^\s*```/.test(raw)) { closeList(); inCode = true; continue; }
+    const h = raw.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { closeList(); const n = h[1].length; html += `<h${n}>${inlineMd(h[2])}</h${n}>`; continue; }
+    if (/^\s*([-*])\s+/.test(raw)) {
+      const content = raw.replace(/^\s*[-*]\s+/, "");
+      if (list !== "ul") { closeList(); list = "ul"; html += "<ul>"; }
+      html += `<li>${inlineMd(content)}</li>`; continue;
+    }
+    if (/^\s*\d+[.)]\s+/.test(raw)) {
+      const content = raw.replace(/^\s*\d+[.)]\s+/, "");
+      if (list !== "ol") { closeList(); list = "ol"; html += "<ol>"; }
+      html += `<li>${inlineMd(content)}</li>`; continue;
+    }
+    if (/^\s*>\s?/.test(raw)) {
+      closeList();
+      const content = raw.replace(/^\s*>\s?/, "");
+      html += `<blockquote>${inlineMd(content)}</blockquote>`; continue;
+    }
+    if (/^\s*(---+|\*\*\*+)\s*$/.test(raw)) { closeList(); html += "<hr>"; continue; }
+    const t = raw.trim();
+    if (!t) { closeList(); continue; }
+    closeList();
+    html += `<p>${inlineMd(raw)}</p>`;
+  }
+  if (inCode) html += "<pre><code>" + esc(codeBuf.join("\n")) + "</code></pre>";
+  closeList();
+  return html;
+}
+
+function setFoundationView(mode) {
+  const editBtn = document.getElementById("btn-foundation-edit");
+  const prevBtn = document.getElementById("btn-foundation-preview");
+  editBtn.classList.toggle("active", mode === "edit");
+  prevBtn.classList.toggle("active", mode === "preview");
+  document.getElementById("foundation-edit-wrap").classList.toggle("hidden", mode !== "edit");
+  const prevWrap = document.getElementById("foundation-preview-wrap");
+  prevWrap.classList.toggle("hidden", mode !== "preview");
+  if (mode === "preview") {
+    prevWrap.innerHTML = mdToHtml(document.getElementById("foundation-editor").value);
+  }
+}
+document.getElementById("btn-foundation-edit").addEventListener("click", () => setFoundationView("edit"));
+document.getElementById("btn-foundation-preview").addEventListener("click", () => setFoundationView("preview"));
+
 async function loadFoundationEditor() {
   try {
     const r = await fetch(mcpUrl + "/api/foundation");
     const d = await r.json();
     document.getElementById("foundation-editor").value = d.foundation;
+    document.getElementById("foundation-preview-wrap").innerHTML = mdToHtml(d.foundation);
   } catch (e) {
     foundationStatus.textContent = "Failed to load: " + e.message;
   }
