@@ -390,6 +390,7 @@ function loadForRoute(route, subtab) {
   showSection(route.section);
   document.querySelectorAll("nav a").forEach(x => x.classList.toggle("active", x.dataset.route === route.section));
   if (route.section === "settings") {
+    restoreAdminToken();
     switchSubtab(subtab || "settings-home", true);
     refreshFigma();
     loadComponents();
@@ -424,6 +425,8 @@ document.querySelectorAll("nav a").forEach(a => {
 function switchSubtab(name, silent) {
   document.querySelectorAll(".subtab").forEach(b => b.classList.toggle("active", b.dataset.subtab === name));
   document.querySelectorAll(".subpanel").forEach(p => p.classList.toggle("hidden", p.id !== name));
+  if (name === "settings-rules") loadComponents();
+  if (name === "settings-foundation") loadFoundationEditor();
   if (!silent) {
     const path = name === "settings-rules" ? "/settings/rules"
       : name === "settings-foundation" ? "/settings/foundation"
@@ -554,9 +557,20 @@ const rulesStatus = document.getElementById("rules-status");
 const componentsEditor = document.getElementById("components-editor");
 let registryComponents = [];
 
+const ADMIN_TOKEN_KEY = "cmcAdminToken";
 function authHeaders() {
-  const token = document.getElementById("rules-admin-token").value.trim();
+  const el = document.getElementById("rules-admin-token");
+  const token = (el ? el.value : "").trim();
+  if (token) try { localStorage.setItem(ADMIN_TOKEN_KEY, token); } catch {}
   return token ? { Authorization: "Bearer " + token } : {};
+}
+function restoreAdminToken() {
+  const el = document.getElementById("rules-admin-token");
+  if (!el) return;
+  try {
+    const saved = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (saved && !el.value) el.value = saved;
+  } catch {}
 }
 
 function sourceBadge(sources) {

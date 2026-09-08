@@ -559,10 +559,16 @@ app.get("/api/components", async (_req, res) => {
   const existing = (await store.getRegistry()) as ComponentEntry[];
   let entries = existing;
   if (!entries.length) {
-    // First access: build from live sources and persist so a reload is stable.
+    // No stored registry yet: build from live sources. Only cache when it actually
+    // found components, so a transient discovery failure doesn't leave a cached
+    // empty list that hides components until a manual Sync.
     const built = await buildRegistry(githubCfg, store, [], await loadAliases());
-    entries = built.entries;
-    await store.saveRegistry(entries as unknown as unknown[]);
+    if (built.entries.length) {
+      entries = built.entries;
+      await store.saveRegistry(entries as unknown as unknown[]);
+    } else {
+      entries = [];
+    }
   }
   res.json({ components: entries });
 });
