@@ -270,11 +270,9 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
             <h3 style="margin:0">Foundation</h3>
             <p style="margin:4px 0 0">System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
           </div>
+          <button id="btn-foundation-edit" class="secondary">Edit</button>
         </div>
         <div id="foundation-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
-        <div class="toolbar" style="margin-top:12px">
-          <button id="btn-foundation-edit">Edit</button>
-        </div>
         <div id="foundation-edit-wrap" class="hidden">
           <hr style="border:none;border-top:1px solid var(--outline2);margin:16px 0">
           <label for="foundation-admin-token">Admin token</label>
@@ -292,8 +290,13 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
 
     <div id="settings-render" class="subpanel hidden">
       <div class="card">
-        <h3>Render guide</h3>
-        <p>Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. The <b>Foundation below is binding</b> for any render — edit it on the Foundation tab and it updates here.</p>
+        <div class="toolbar" style="justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <h3 style="margin:0">Render guide</h3>
+            <p style="margin:4px 0 0">Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. The <b>Foundation below is binding</b> for any render — edit it on the Foundation tab and it updates here.</p>
+          </div>
+          <button id="btn-render-edit" class="secondary">Edit</button>
+        </div>
         <div class="acc-item">
           <button class="acc-head" data-acc="render-foundation-head" aria-expanded="false">
             <span class="acc-title">Foundation</span>
@@ -303,9 +306,6 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
           <div class="acc-body markdown-body" data-body="render-foundation-head" hidden><p style="color:var(--muted)">Loading…</p></div>
         </div>
         <div id="render-preview-wrap" class="markdown-body" style="margin-top:8px"><p style="color:var(--muted)">Loading…</p></div>
-        <div class="toolbar" style="margin-top:12px">
-          <button id="btn-render-edit">Edit</button>
-        </div>
         <div id="render-edit-wrap" class="hidden">
           <hr style="border:none;border-top:1px solid var(--outline2);margin:16px 0">
           <label for="render-admin-token">Admin token</label>
