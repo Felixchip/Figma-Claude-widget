@@ -115,7 +115,9 @@
   .acc-state { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-pill); }
   .acc-def { background: var(--primary1); color: var(--primary2); }
   .acc-empty { background: var(--fill3); color: var(--content-secondary); }
-  .acc-chev { color: var(--muted); font-size: 14px; }
+  .acc-chev { width: 16px; height: 16px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); transition: transform .15s ease; }
+  .acc-head[aria-expanded="true"] .acc-chev { transform: rotate(180deg); }
+  .acc-chev svg { display: block; }
   .acc-body { padding: 12px 14px; border-top: 1px solid var(--outline5); }
   .acc-body textarea { width: 100%; }
   .subtabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--outline2); flex-wrap: wrap; }
@@ -301,7 +303,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
           <button class="acc-head" data-acc="render-foundation-head" aria-expanded="false">
             <span class="acc-title">Foundation</span>
             <span class="acc-meta"><span class="acc-src">binding · from Foundation tab</span></span>
-            <span class="acc-chev">▾</span>
+            <span class="acc-chev"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </button>
           <div class="acc-body markdown-body" data-body="render-foundation-head" hidden><p style="color:var(--muted)">Loading…</p></div>
         </div>
@@ -643,7 +645,7 @@ async function renderComponents(components) {
           <span class="acc-src">${sourceBadge(c.sources)}</span>
           <span class="acc-state ${stateClass}">${stateLabel}</span>
         </span>
-        <span class="acc-chev">▾</span>
+        <span class="acc-chev"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </button>
       <div class="acc-body" data-body="${c.key}" hidden>
         <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
@@ -664,7 +666,6 @@ async function renderComponents(components) {
       const expanded = btn.getAttribute("aria-expanded") === "true";
       btn.setAttribute("aria-expanded", expanded ? "false" : "true");
       body.hidden = expanded;
-      btn.querySelector(".acc-chev").textContent = expanded ? "▾" : "▴";
     });
   });
 
@@ -893,7 +894,6 @@ document.querySelector('#settings-render [data-acc="render-foundation-head"]').a
   const open = head.getAttribute("aria-expanded") === "true";
   head.setAttribute("aria-expanded", open ? "false" : "true");
   body.hidden = open;
-  head.querySelector(".acc-chev").textContent = open ? "▾" : "▴";
 });
 
 async function loadRenderGuide() {
