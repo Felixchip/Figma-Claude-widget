@@ -302,21 +302,22 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
           </button>
           <div class="acc-body markdown-body" data-body="render-foundation-head" hidden><p style="color:var(--muted)">Loading…</p></div>
         </div>
-        <div class="viewtoggle">
-          <button id="btn-render-edit" class="secondary">Edit</button>
-          <button id="btn-render-preview" class="secondary active">Preview</button>
+        <div id="render-preview-wrap" class="markdown-body" style="margin-top:8px"><p style="color:var(--muted)">Loading…</p></div>
+        <div class="toolbar" style="margin-top:12px">
+          <button id="btn-render-edit">Edit</button>
         </div>
         <div id="render-edit-wrap" class="hidden">
+          <hr style="border:none;border-top:1px solid var(--outline2);margin:16px 0">
           <label for="render-admin-token">Admin token</label>
           <input type="password" id="render-admin-token" placeholder="ADMIN_TOKEN">
           <label for="render-editor" style="margin-top:12px">Render specifics (markdown)</label>
           <textarea id="render-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
           <div class="toolbar" style="margin-top:12px">
-            <button id="btn-render-save">Save render guide</button>
+            <button id="btn-render-save">Save</button>
+            <button id="btn-render-cancel" class="secondary">Cancel</button>
             <span id="render-status" style="font-size:13px;color:var(--muted)"></span>
           </div>
         </div>
-        <div id="render-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
       </div>
     </div>
   </section>
@@ -874,17 +875,16 @@ document.getElementById("btn-foundation-save").addEventListener("click", async (
 // render guide editor
 const renderStatus = document.getElementById("render-status");
 function setRenderView(mode) {
-  document.getElementById("btn-render-edit").classList.toggle("active", mode === "edit");
-  document.getElementById("btn-render-preview").classList.toggle("active", mode === "preview");
   document.getElementById("render-edit-wrap").classList.toggle("hidden", mode !== "edit");
-  const prevWrap = document.getElementById("render-preview-wrap");
-  prevWrap.classList.toggle("hidden", mode !== "preview");
+  document.getElementById("render-preview-wrap").classList.toggle("hidden", mode !== "preview");
   if (mode === "preview") {
-    prevWrap.innerHTML = mdToHtml(document.getElementById("render-editor").value);
+    document.getElementById("render-preview-wrap").innerHTML = mdToHtml(document.getElementById("render-editor").value);
   }
+  const tokenInput = document.getElementById("render-admin-token");
+  if (tokenInput) tokenInput.value = localStorage.getItem("cmcRenderToken") || "";
 }
 document.getElementById("btn-render-edit").addEventListener("click", () => setRenderView("edit"));
-document.getElementById("btn-render-preview").addEventListener("click", () => setRenderView("preview"));
+document.getElementById("btn-render-cancel").addEventListener("click", () => setRenderView("preview"));
 
 // bind the static Foundation accordion inside the Render guide tab
 document.querySelector('#settings-render [data-acc="render-foundation-head"]').addEventListener("click", function () {
@@ -904,7 +904,8 @@ async function loadRenderGuide() {
     document.getElementById("render-preview-wrap").innerHTML = mdToHtml(d.guide);
     const fb = document.querySelector('[data-body="render-foundation-head"]');
     if (fb) fb.innerHTML = mdToHtml(d.foundation);
-    setRenderView("preview");
+    document.getElementById("render-edit-wrap").classList.add("hidden");
+    document.getElementById("render-preview-wrap").classList.remove("hidden");
   } catch (e) {
     renderStatus.textContent = "Failed to load: " + e.message;
   }
@@ -912,6 +913,7 @@ async function loadRenderGuide() {
 document.getElementById("btn-render-save").addEventListener("click", async () => {
   const token = document.getElementById("render-admin-token").value.trim();
   const guide = document.getElementById("render-editor").value.trim();
+  if (token) { try { localStorage.setItem("cmcRenderToken", token); } catch {} }
   renderStatus.textContent = "Saving…";
   try {
     const r = await fetch(mcpUrl + "/api/render-guide", {
@@ -922,6 +924,7 @@ document.getElementById("btn-render-save").addEventListener("click", async () =>
     const d = await r.json();
     if (!r.ok) { renderStatus.textContent = d.error || "Save failed."; return; }
     renderStatus.textContent = "Saved. Agents get the render guide on their next read.";
+    setRenderView("preview");
   } catch (e) {
     renderStatus.textContent = "Save failed: " + e.message;
   }
