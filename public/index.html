@@ -646,7 +646,7 @@ async function renderComponents(components) {
         <span class="acc-chev">▾</span>
       </button>
       <div class="acc-body" data-body="${c.key}" hidden>
-        <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:80px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
+        <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:160px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
         <div style="margin-top:6px">
           <button class="secondary" data-save="${c.key}" style="padding:4px 12px;font-size:12px">Save rule</button>
           <span data-status="${c.key}" style="font-size:12px;color:var(--muted)"></span>
