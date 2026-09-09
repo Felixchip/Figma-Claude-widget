@@ -1,4 +1,4 @@
-# CMC Build Kit
+# GSA Build Kit
 
 One MCP server + web UI that gives your agents (Claude, DeepSeek, ChatGPT) everything they need to design and build **on-brand** interfaces:
 
@@ -106,13 +106,13 @@ No code change or redeploy is needed to update component guidance. Set `ADMIN_TO
 
 ## Connect your agent
 
-The MCP is named `cmc-build-kit`. Add it (plus Figma's official MCP) so the agent sees design + code context:
+The MCP is named `gsa-build-kit`. Add it (plus Figma's official MCP) so the agent sees design + code context:
 
 ```json
 {
   "mcpServers": {
     "figma":          { "url": "https://mcp.figma.com/mcp" },
-    "cmc-build-kit":  { "url": "https://<your-app>.up.railway.app/mcp" }
+    "gsa-build-kit":  { "url": "https://<your-app>.up.railway.app/mcp" }
   }
 }
 ```
@@ -121,17 +121,17 @@ Claude Code:
 
 ```sh
 claude mcp add --transport http figma https://mcp.figma.com/mcp
-claude mcp add --transport http cmc-build-kit https://<your-app>.up.railway.app/mcp
+claude mcp add --transport http gsa-build-kit https://<your-app>.up.railway.app/mcp
 ```
 
 ### ChatGPT / Codex connector
 
-The `cmc-build-kit` MCP is a Streamable HTTP server at `https://<your-app>.up.railway.app/mcp` and works as an open ChatGPT connector (no per-user login). All tools are read-only.
+The `gsa-build-kit` MCP is a Streamable HTTP server at `https://<your-app>.up.railway.app/mcp` and works as an open ChatGPT connector (no per-user login). All tools are read-only.
 
 1. In ChatGPT, enable **Developer mode** (Settings → Security and login).
 2. Go to ChatGPT Plugins (or the Codex connector config), add a new MCP connector, and paste the server URL:
    `https://<your-app>.up.railway.app/mcp`
-3. The connector exposes the `cmc-build-kit` tools (prefixed `cmc_build_kit_*`): list rules, Figma library/components/tokens, repo components, and specs.
+3. The connector exposes the `gsa-build-kit` tools (prefixed `gsa_build_kit_*`): list rules, Figma library/components/tokens, repo components, and specs.
 
 Design/write flow for ChatGPT users:
 - The Build Kit connector supplies the components/tokens/rules (read-only, shared).
@@ -141,7 +141,7 @@ Suggested prompt:
 
 ```
 Use the Figma MCP (get_design_context + get_variable_defs) to read the design,
-and the cmc-build-kit MCP (list_rules, get_figma_library, list_figma_components,
+and the gsa-build-kit MCP (list_rules, get_figma_library, list_figma_components,
 get_figma_component, get_figma_tokens, list_components, get_component, list_specs,
 get_spec) to follow the mandatory rules, read the design library and tokens,
 pick components, and read product specs.

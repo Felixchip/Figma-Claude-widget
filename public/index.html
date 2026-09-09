@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" href="/CMC-favicon.png">
-<title>CMC Build Kit</title>
+<title>GSA Build Kit</title>
 <style>
   :root {
     /* GSA design-system tokens (GSAColor / GSASpacing / GSARadius / GSATypography) */
@@ -176,7 +176,7 @@
 
     <div class="card hidden">
       <h3>Recommended prompt</h3>
-      <pre><code>Use the cmc-build-kit MCP (list_rules, get_figma_library, list_figma_components,
+      <pre><code>Use the gsa-build-kit MCP (list_rules, get_figma_library, list_figma_components,
 get_figma_component, get_figma_tokens, list_components, get_component, list_specs,
 get_spec) to follow the mandatory rules, read the Figma design library and tokens,
 pick components, and read product specs.
@@ -223,7 +223,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       </div>
 
       <div class="card">
-        <h3>CMC Build Kit (this server)</h3>
+        <h3>GSA Build Kit (this server)</h3>
         <p>One MCP endpoint for everything: your Figma design library, your code components repo, the foundation, and per-component rules, so agents reuse real components instead of inventing them.</p>
         <p class="pill">get_figma_library</p><p class="pill">list_figma_components</p><p class="pill">get_figma_component</p><p class="pill">get_figma_tokens</p><p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
       </div>
@@ -302,21 +302,21 @@ const AGENTS = {
     hint: "ChatGPT: add as an MCP connector in Developer mode. Codex: add to your mcp config.",
     code: `{
   "mcpServers": {
-    "cmc-build-kit": { "url": "${serverUrl}" }
+    "gsa-build-kit": { "url": "${serverUrl}" }
   }
 }`
   },
   "claude-code": {
     label: "Claude Code",
     hint: "Run this command in your terminal.",
-    code: `claude mcp add --transport http cmc-build-kit ${serverUrl}`
+    code: `claude mcp add --transport http gsa-build-kit ${serverUrl}`
   },
   "cursor": {
     label: "Cursor",
     hint: "Cursor Settings → MCP → + Add new global MCP server.",
     code: `{
   "mcpServers": {
-    "cmc-build-kit": { "url": "${serverUrl}" }
+    "gsa-build-kit": { "url": "${serverUrl}" }
   }
 }`
   },
@@ -330,7 +330,7 @@ const AGENTS = {
     hint: "Add to your MCP-compatible client (e.g. Cline, Continue).",
     code: `{
   "mcpServers": {
-    "cmc-build-kit": { "url": "${serverUrl}" }
+    "gsa-build-kit": { "url": "${serverUrl}" }
   }
 }`
   }
@@ -451,14 +451,14 @@ GUARDRAILS, these are absolute:
 3. When in doubt, ask the user.
 
 WORKFLOW:
-1. Follow the cmc-build-kit MCP rules (list_rules).
+1. Follow the gsa-build-kit MCP rules (list_rules).
 2. Read the Figma design library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).
 3. Inspect our components repo (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
 4. Plan the UI using ONLY components and tokens that exist in our system.
 5. If a needed component does not exist, STOP and ask the user, do not invent one.
 6. Output: (a) a component map, (b) the screens/flows, (c) anything the user needs to provide, (d) rough implementation steps for an agent.
 
-Connect the cmc-build-kit MCP before running this.`;
+Connect the gsa-build-kit MCP before running this.`;
   const out = document.getElementById("prompt-out");
   out.textContent = prompt;
   out.classList.remove("hidden");
@@ -826,6 +826,6 @@ document.getElementById("btn-foundation-save").addEventListener("click", async (
 // helpers/consts are initialized.
 navigate(window.location.pathname, false);
 </script>
-<footer>© <span class="brand">CMCMarkets</span> · CMC Build Kit</footer>
+<footer>© <span class="brand">CMCMarkets</span> · GSA Build Kit</footer>
 </body>
 </html>

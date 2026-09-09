@@ -100,7 +100,7 @@ const READ_ONLY_ANNOTATIONS = {
 function createMcpServer(): McpServer {
   const server = new McpServer(
     {
-      name: "cmc-build-kit",
+      name: "gsa-build-kit",
       version: "0.3.0",
     },
     {

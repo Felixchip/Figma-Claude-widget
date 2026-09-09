@@ -41,7 +41,7 @@ export async function resolveFigmaWithName(store: SpecStore): Promise<{ token: s
 
 export async function getFigmaLibrary(store: SpecStore): Promise<ToolResult> {
   const s = await resolveFigma(store);
-  if (!s.token) return { text: "Figma is not connected. Ask an admin to connect it in the CMC Build Kit web UI.", isError: true };
+  if (!s.token) return { text: "Figma is not connected. Ask an admin to connect it in the GSA Build Kit web UI.", isError: true };
   if (!s.fileKey) return { text: "Figma is connected but no library file is selected. Ask an admin to pick a file.", isError: true };
   try {
     const file = await figmaFile(s.token, s.fileKey);
