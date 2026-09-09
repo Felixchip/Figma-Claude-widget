@@ -265,23 +265,28 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
 
     <div id="settings-foundation" class="subpanel hidden">
       <div class="card">
-        <h3>Foundation</h3>
-        <p>System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
-        <div class="viewtoggle">
-          <button id="btn-foundation-edit" class="secondary">Edit</button>
-          <button id="btn-foundation-preview" class="secondary active">Preview</button>
+        <div class="toolbar" style="justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <h3 style="margin:0">Foundation</h3>
+            <p style="margin:4px 0 0">System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
+          </div>
+        </div>
+        <div id="foundation-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
+        <div class="toolbar" style="margin-top:12px">
+          <button id="btn-foundation-edit">Edit</button>
         </div>
         <div id="foundation-edit-wrap" class="hidden">
+          <hr style="border:none;border-top:1px solid var(--outline2);margin:16px 0">
           <label for="foundation-admin-token">Admin token</label>
           <input type="password" id="foundation-admin-token" placeholder="ADMIN_TOKEN">
           <label for="foundation-editor" style="margin-top:12px">Foundation (markdown)</label>
           <textarea id="foundation-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
           <div class="toolbar" style="margin-top:12px">
-            <button id="btn-foundation-save">Save foundation</button>
+            <button id="btn-foundation-save">Save</button>
+            <button id="btn-foundation-cancel" class="secondary">Cancel</button>
             <span id="foundation-status" style="font-size:13px;color:var(--muted)"></span>
           </div>
         </div>
-        <div id="foundation-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
       </div>
     </div>
 
@@ -822,18 +827,16 @@ function mdToHtml(md) {
 
 function setFoundationView(mode) {
   const editBtn = document.getElementById("btn-foundation-edit");
-  const prevBtn = document.getElementById("btn-foundation-preview");
-  editBtn.classList.toggle("active", mode === "edit");
-  prevBtn.classList.toggle("active", mode === "preview");
   document.getElementById("foundation-edit-wrap").classList.toggle("hidden", mode !== "edit");
-  const prevWrap = document.getElementById("foundation-preview-wrap");
-  prevWrap.classList.toggle("hidden", mode !== "preview");
+  document.getElementById("foundation-preview-wrap").classList.toggle("hidden", mode !== "preview");
   if (mode === "preview") {
-    prevWrap.innerHTML = mdToHtml(document.getElementById("foundation-editor").value);
+    document.getElementById("foundation-preview-wrap").innerHTML = mdToHtml(document.getElementById("foundation-editor").value);
   }
+  const tokenInput = document.getElementById("foundation-admin-token");
+  if (tokenInput) tokenInput.value = localStorage.getItem("cmcFoundationToken") || "";
+  return true;
 }
 document.getElementById("btn-foundation-edit").addEventListener("click", () => setFoundationView("edit"));
-document.getElementById("btn-foundation-preview").addEventListener("click", () => setFoundationView("preview"));
 
 async function loadFoundationEditor() {
   try {
@@ -841,14 +844,17 @@ async function loadFoundationEditor() {
     const d = await r.json();
     document.getElementById("foundation-editor").value = d.foundation;
     document.getElementById("foundation-preview-wrap").innerHTML = mdToHtml(d.foundation);
-    setFoundationView("preview");
+    document.getElementById("foundation-edit-wrap").classList.add("hidden");
+    document.getElementById("foundation-preview-wrap").classList.remove("hidden");
   } catch (e) {
     foundationStatus.textContent = "Failed to load: " + e.message;
   }
 }
+document.getElementById("btn-foundation-cancel").addEventListener("click", () => setFoundationView("preview"));
 document.getElementById("btn-foundation-save").addEventListener("click", async () => {
   const token = document.getElementById("foundation-admin-token").value.trim();
   const foundation = document.getElementById("foundation-editor").value.trim();
+  if (token) { try { localStorage.setItem("cmcFoundationToken", token); } catch {} }
   foundationStatus.textContent = "Saving…";
   try {
     const r = await fetch(mcpUrl + "/api/foundation", {
@@ -859,6 +865,7 @@ document.getElementById("btn-foundation-save").addEventListener("click", async (
     const d = await r.json();
     if (!r.ok) { foundationStatus.textContent = d.error || "Save failed."; return; }
     foundationStatus.textContent = "Saved. Agents get the foundation on their next read.";
+    setFoundationView("preview");
   } catch (e) {
     foundationStatus.textContent = "Save failed: " + e.message;
   }
