@@ -621,9 +621,15 @@ app.put("/api/foundation", async (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /api/render-guide — the editable render guide (agents + web UI).
+// GET /api/render-guide — the editable render-specific guide, plus the live
+// foundation (bound into render context, sourced from the Foundation tab).
 app.get("/api/render-guide", async (_req, res) => {
-  res.json({ guide: await loadRenderGuide(), updated: !!(await store.getRenderGuide()) });
+  const foundation = (await store.getFoundation()) || DEFAULT_FOUNDATION;
+  res.json({
+    guide: await loadRenderGuide(),
+    foundation,
+    updated: !!(await store.getRenderGuide()),
+  });
 });
 
 // PUT /api/render-guide — replace the render guide doc (admin).

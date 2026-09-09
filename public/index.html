@@ -279,7 +279,9 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
     <div id="settings-render" class="subpanel hidden">
       <div class="card">
         <h3>Render guide</h3>
-        <p>Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
+        <p>Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. The <b>Foundation below is binding</b> for any render — edit it on the Foundation tab and it updates here.</p>
+        <h4 style="margin-top:16px;color:var(--muted)">Foundation (from Foundation tab)</h4>
+        <div id="render-foundation" class="markdown-body" style="border:1px solid var(--outline2);border-radius:8px;padding:14px;margin-bottom:16px"><p style="color:var(--muted)">Loading…</p></div>
         <div class="viewtoggle">
           <button id="btn-render-edit" class="secondary">Edit</button>
           <button id="btn-render-preview" class="secondary active">Preview</button>
@@ -287,7 +289,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <div id="render-edit-wrap" class="hidden">
           <label for="render-admin-token">Admin token</label>
           <input type="password" id="render-admin-token" placeholder="ADMIN_TOKEN">
-          <label for="render-editor" style="margin-top:12px">Render guide (markdown)</label>
+          <label for="render-editor" style="margin-top:12px">Render specifics (markdown)</label>
           <textarea id="render-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
           <div class="toolbar" style="margin-top:12px">
             <button id="btn-render-save">Save render guide</button>
@@ -868,6 +870,7 @@ async function loadRenderGuide() {
     const d = await r.json();
     document.getElementById("render-editor").value = d.guide;
     document.getElementById("render-preview-wrap").innerHTML = mdToHtml(d.guide);
+    document.getElementById("render-foundation").innerHTML = mdToHtml(d.foundation);
     setRenderView("preview");
   } catch (e) {
     renderStatus.textContent = "Failed to load: " + e.message;

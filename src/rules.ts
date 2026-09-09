@@ -67,6 +67,11 @@ The GSA design system is built on a small set of iOS-native principles. Follow t
 export const DEFAULT_RENDER_GUIDE = `
 # Render Guide (for image generation)
 
+> BINDING: The System Foundation (above in this rules document) applies to every
+> render. Follow its principles first (hierarchy, one primary action, token
+> spacing, alignment, accessibility, no invented chrome), then apply the render
+> specs below. When Foundation and this guide conflict, Foundation wins.
+
 When asked to produce an IMAGE of a screen (not code), compose the UI from the GSA
 components below and render them as a clean, flat iOS-style mockup. Follow the
 visual specs, never free-style the design.
