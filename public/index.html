@@ -190,6 +190,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       <button class="subtab active" data-subtab="settings-home" role="tab">Sources</button>
       <button class="subtab" data-subtab="settings-rules" role="tab">Component rules</button>
       <button class="subtab" data-subtab="settings-foundation" role="tab">Foundation</button>
+      <button class="subtab" data-subtab="settings-render" role="tab">Render guide</button>
     </div>
 
     <div id="settings-home" class="subpanel">
@@ -272,6 +273,28 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
           </div>
         </div>
         <div id="foundation-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
+      </div>
+    </div>
+
+    <div id="settings-render" class="subpanel hidden">
+      <div class="card">
+        <h3>Render guide</h3>
+        <p>Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
+        <div class="viewtoggle">
+          <button id="btn-render-edit" class="secondary">Edit</button>
+          <button id="btn-render-preview" class="secondary active">Preview</button>
+        </div>
+        <div id="render-edit-wrap" class="hidden">
+          <label for="render-admin-token">Admin token</label>
+          <input type="password" id="render-admin-token" placeholder="ADMIN_TOKEN">
+          <label for="render-editor" style="margin-top:12px">Render guide (markdown)</label>
+          <textarea id="render-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+          <div class="toolbar" style="margin-top:12px">
+            <button id="btn-render-save">Save render guide</button>
+            <span id="render-status" style="font-size:13px;color:var(--muted)"></span>
+          </div>
+        </div>
+        <div id="render-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
       </div>
     </div>
   </section>
@@ -402,7 +425,7 @@ function loadForRoute(route, subtab) {
 function navigate(path, push = true) {
   if (path === "/") return loadForRoute(ROUTES.overview, null);
   if (path.startsWith("/settings")) {
-    const sub = { "/rules": "settings-rules", "/foundation": "settings-foundation" }[
+    const sub = { "/rules": "settings-rules", "/foundation": "settings-foundation", "/render": "settings-render" }[
       path.replace(/^\/settings/, "").replace(/\/$/, "")
     ];
     return loadForRoute(ROUTES.settings, sub || "settings-home");
@@ -427,9 +450,11 @@ function switchSubtab(name, silent) {
   document.querySelectorAll(".subpanel").forEach(p => p.classList.toggle("hidden", p.id !== name));
   if (name === "settings-rules") loadComponents();
   if (name === "settings-foundation") loadFoundationEditor();
+  if (name === "settings-render") loadRenderGuide();
   if (!silent) {
     const path = name === "settings-rules" ? "/settings/rules"
       : name === "settings-foundation" ? "/settings/foundation"
+      : name === "settings-render" ? "/settings/render"
       : "/settings";
     history.pushState({}, "", path);
   }
@@ -819,6 +844,50 @@ document.getElementById("btn-foundation-save").addEventListener("click", async (
     foundationStatus.textContent = "Saved. Agents get the foundation on their next read.";
   } catch (e) {
     foundationStatus.textContent = "Save failed: " + e.message;
+  }
+});
+
+// render guide editor
+const renderStatus = document.getElementById("render-status");
+function setRenderView(mode) {
+  document.getElementById("btn-render-edit").classList.toggle("active", mode === "edit");
+  document.getElementById("btn-render-preview").classList.toggle("active", mode === "preview");
+  document.getElementById("render-edit-wrap").classList.toggle("hidden", mode !== "edit");
+  const prevWrap = document.getElementById("render-preview-wrap");
+  prevWrap.classList.toggle("hidden", mode !== "preview");
+  if (mode === "preview") {
+    prevWrap.innerHTML = mdToHtml(document.getElementById("render-editor").value);
+  }
+}
+document.getElementById("btn-render-edit").addEventListener("click", () => setRenderView("edit"));
+document.getElementById("btn-render-preview").addEventListener("click", () => setRenderView("preview"));
+
+async function loadRenderGuide() {
+  try {
+    const r = await fetch(mcpUrl + "/api/render-guide");
+    const d = await r.json();
+    document.getElementById("render-editor").value = d.guide;
+    document.getElementById("render-preview-wrap").innerHTML = mdToHtml(d.guide);
+    setRenderView("preview");
+  } catch (e) {
+    renderStatus.textContent = "Failed to load: " + e.message;
+  }
+}
+document.getElementById("btn-render-save").addEventListener("click", async () => {
+  const token = document.getElementById("render-admin-token").value.trim();
+  const guide = document.getElementById("render-editor").value.trim();
+  renderStatus.textContent = "Saving…";
+  try {
+    const r = await fetch(mcpUrl + "/api/render-guide", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({ guide })
+    });
+    const d = await r.json();
+    if (!r.ok) { renderStatus.textContent = d.error || "Save failed."; return; }
+    renderStatus.textContent = "Saved. Agents get the render guide on their next read.";
+  } catch (e) {
+    renderStatus.textContent = "Save failed: " + e.message;
   }
 });
 

@@ -61,6 +61,60 @@ The GSA design system is built on a small set of iOS-native principles. Follow t
 - When in doubt about how two elements relate, look at how the existing GSAComponentsExample screens compose them.
 `.trim();
 
+// Editable render guide shown to agents (after the foundation, before the
+// component rules). Tells image-capable agents how to draw GSA components and
+// screens accurately and on-brand. Admins can edit it at runtime.
+export const DEFAULT_RENDER_GUIDE = `
+# Render Guide (for image generation)
+
+When asked to produce an IMAGE of a screen (not code), compose the UI from the GSA
+components below and render them as a clean, flat iOS-style mockup. Follow the
+visual specs, never free-style the design.
+
+## Global render rules
+
+- Use the GSA token palette exactly (hex below). No invented colors, shadows, or gradients.
+- Render at device proportions (e.g. a 390x844 iPhone canvas) with the status bar area left clean.
+- Typography: SF Pro style (San Francisco-like), sizes per component below.
+- Keep fills flat and crisp; the GSA look is clean, not skeuomorphic.
+- One primary action per screen, in the primary brand blue.
+
+## Color tokens (hex)
+
+- Brand blue: #325FFF (primary); pressed/dark: #002DCC; tint #E5EBFF.
+- Text: near-black #000000 primary, #59627C secondary, #A0AAAB muted.
+- Gain green: #178C43. Loss/error red: #E3171A.
+- Surfaces: white content on #F7F7F7 background; hairline dividers #D6DBDB.
+- Fill/neutral grays: #C9CEDA, #909CB0, #596A84.
+
+## Spacing / radius
+
+- Spacing scale 2/4/8/12/16/24. Group related controls tightly (8), sections wider (16-24).
+- Buttons and chips are fully rounded (capsule). Cards/inputs use 16px radius.
+
+## Component rendering specs
+
+- GSAButton: pill/capsule. Primary = #325FFF fill, white text, semibold. Sizes: small h32, medium h44, large h56. Secondary = #C9CEDA fill, dark text. Tertiary = outlined (1px #325FFF), blue text. Ghost = text only. One primary per screen.
+- GSAChangeIndicator: an up/down arrow plus signed number, e.g. "+1.50 (+1.24%)". Gain in #178C43 with ▲; loss in #E3171A with ▼. Use tabular figures.
+- GSACheckbox: 24x24 rounded square. Unchecked = 1-2px gray stroke, transparent. Checked = #325FFF fill with white check. Indeterminate = #325FFF fill with white minus. Label beside it, 44pt tap area.
+- GSAChip: compact capsule (~32pt tall). Selected = filled (#325FFF bg or blue tint #E5EBFF with blue text). Unselected = light gray fill or outline. 1-2 word label; optional leading icon or trailing x. Keep >=8px between chips.
+- GSAFlag: a small circular country/region flag image (~20-40px).
+- GSAInstrumentRow: a list card with left identity (small circular logo, bold ticker, gray asset name) and right-aligned data (semibold price in tabular figures + a change indicator). Whole row is one unit.
+- GSARadioButton: 22-24px circle. Unselected = gray ring. Selected = #325FFF ring with a filled inner dot. Label to the right, one option selected from a group.
+- GSASegmentedControl: a rounded track (~#F7F7F7) with an equal-width highlighted segment (white thumb, subtle, #325FFF text) marking the active option.
+- GSASlider / RangeSlider: a thin track; filled portion to the thumb in #325FFF, unfilled in light gray, a round white thumb (~28px). Optional ticks and a small value bubble.
+- GSASparkline: a small ~48x40 line chart, thin 1-1.5px line in the trend color, a faint dashed zero line, no axes/gridlines, optional end dot.
+- GSAToggle: an iOS-style switch. On = #325FFF track (or green) with white knob; Off = gray track, white knob.
+- GSATextField: rounded (~16px radius) input, light gray fill or hairline border, persistent small label above, placeholder gray, optional trailing icon.
+- GSASheetToolbar / Sheet: a sheet/bottom panel with a grabber bar, title, close (x) and optional action (arrow) controls.
+
+## Screen composition
+
+Compose full screens (e.g. an order ticket, watchlist) by stacking these components
+with the token spacing scale. Show real-looking financial values using tabular
+figures. Render the finished screen as the image output.
+`.trim();
+
 // Default per-component usage rules. This is the editable blob: an admin can
 // replace it at runtime from the web UI without a code change or redeploy.
 export const DEFAULT_USAGE_RULES = `

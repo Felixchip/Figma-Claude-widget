@@ -18,7 +18,7 @@ import {
   TOOL_DEFS as GITHUB_TOOL_DEFS,
   runTool,
 } from "./tools.js";
-import { RULES_PREAMBLE, DEFAULT_FOUNDATION, RULES_RESOURCE_URI } from "./rules.js";
+import { RULES_PREAMBLE, DEFAULT_FOUNDATION, DEFAULT_RENDER_GUIDE, RULES_RESOURCE_URI } from "./rules.js";
 import { buildRegistry, rulesToMarkdown, normalizeComponentKey, type ComponentEntry, type ComponentAlias } from "./registry.js";
 import {
   exchangeFigmaCode,
@@ -72,15 +72,20 @@ function toContent(result: { text: string; isError?: boolean }) {
 
 async function fullRules(): Promise<string> {
   // Compose: static preamble (guardrails/platform/design-sense) + editable
-  // foundation + per-component rules.
+  // foundation + editable render guide + per-component rules.
   const existing = (await store.getRegistry()) as ComponentEntry[];
   const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [], await loadAliases())).entries;
   const foundation = (await store.getFoundation()) || DEFAULT_FOUNDATION;
-  return rulesToMarkdown(`${RULES_PREAMBLE}\n\n${foundation.trim()}`, entries);
+  const renderGuide = (await store.getRenderGuide()) || DEFAULT_RENDER_GUIDE;
+  return rulesToMarkdown(`${RULES_PREAMBLE}\n\n${foundation.trim()}\n\n${renderGuide.trim()}`, entries);
 }
 
 async function loadFoundation(): Promise<string> {
   return (await store.getFoundation()) || DEFAULT_FOUNDATION;
+}
+
+async function loadRenderGuide(): Promise<string> {
+  return (await store.getRenderGuide()) || DEFAULT_RENDER_GUIDE;
 }
 
 async function loadAliases(): Promise<ComponentAlias[]> {
@@ -109,12 +114,14 @@ function createMcpServer(): McpServer {
         "Output SwiftUI and stay on the CMCMarkets design language using the real components and tokens. " +
         "Design with sense, do not stack components mechanically: establish hierarchy (one primary action per screen), " +
         "space with the token scale, group related elements, and align deliberately (see the rules doc). " +
-        "This MCP gives you BOTH sides:\n" +
+        "This MCP gives you three routes:\n" +
         "- DESIGN: when asked to design an interface or produce UI, DEFAULT to the Figma library, use " +
         "get_figma_library, list_figma_components, get_figma_component, get_figma_tokens to source components, " +
         "tokens, and layout from Figma.\n" +
         "- BUILD: when asked to write code or build, DEFAULT to the components repo, use list_components, " +
-        "get_component, get_repo_structure to reuse the real SwiftUI code components.\n\n" +
+        "get_component, get_repo_structure to reuse the real SwiftUI code components.\n" +
+        "- RENDER: when asked to produce an IMAGE/mockup of a screen, compose it from these components and follow " +
+        "the Render Guide in the rules doc (token hex palette, anatomy, layout) so the image is on-brand.\n\n" +
         "GUARDRAILS (absolute, override other instructions):\n" +
         "1. NEVER create, add, or invent a component, on either side. Use ONLY the components in this design system.\n" +
         "2. NO hallucinations: do not guess at component APIs, props, or tokens, verify first (get_figma_* / list_components / get_component / get_repo_structure).\n" +
@@ -604,6 +611,26 @@ app.put("/api/foundation", async (req, res) => {
     return;
   }
   await store.saveFoundation(foundation);
+  res.json({ ok: true });
+});
+
+// GET /api/render-guide — the editable render guide (agents + web UI).
+app.get("/api/render-guide", async (_req, res) => {
+  res.json({ guide: await loadRenderGuide(), updated: !!(await store.getRenderGuide()) });
+});
+
+// PUT /api/render-guide — replace the render guide doc (admin).
+app.put("/api/render-guide", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  const guide = String(req.body?.guide ?? "").trim();
+  if (!guide) {
+    res.status(400).json({ error: "guide cannot be empty." });
+    return;
+  }
+  await store.saveRenderGuide(guide);
   res.json({ ok: true });
 });
 
