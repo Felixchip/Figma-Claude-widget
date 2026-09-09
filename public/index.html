@@ -265,13 +265,11 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
 
     <div id="settings-foundation" class="subpanel hidden">
       <div class="card">
-        <div class="toolbar" style="justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-          <div>
-            <h3 style="margin:0">Foundation</h3>
-            <p style="margin:4px 0 0">System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
-          </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <h3 style="margin:0">Foundation</h3>
           <button id="btn-foundation-edit" class="secondary">Edit</button>
         </div>
+        <p style="margin:6px 0 14px">System foundation shown to agents ahead of the component rules: design principles and how to compose the components into on-brand iOS screens. Agents read it via <code>list_rules</code> / <code>design://rules</code>.</p>
         <div id="foundation-preview-wrap" class="markdown-body"><p style="color:var(--muted)">Loading…</p></div>
         <div id="foundation-edit-wrap" class="hidden">
           <hr style="border:none;border-top:1px solid var(--outline2);margin:16px 0">
@@ -290,13 +288,11 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
 
     <div id="settings-render" class="subpanel hidden">
       <div class="card">
-        <div class="toolbar" style="justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-          <div>
-            <h3 style="margin:0">Render guide</h3>
-            <p style="margin:4px 0 0">Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. The <b>Foundation below is binding</b> for any render — edit it on the Foundation tab and it updates here.</p>
-          </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <h3 style="margin:0">Render guide</h3>
           <button id="btn-render-edit" class="secondary">Edit</button>
         </div>
+        <p style="margin:6px 0 14px">Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. The <b>Foundation below is binding</b> for any render — edit it on the Foundation tab and it updates here.</p>
         <div class="acc-item">
           <button class="acc-head" data-acc="render-foundation-head" aria-expanded="false">
             <span class="acc-title">Foundation</span>
