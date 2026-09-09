@@ -280,8 +280,14 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       <div class="card">
         <h3>Render guide</h3>
         <p>Tells image-capable agents how to draw the GSA components and screens accurately (hex palette, anatomy, layout) when asked to produce an image/mockup. The <b>Foundation below is binding</b> for any render — edit it on the Foundation tab and it updates here.</p>
-        <h4 style="margin-top:16px;color:var(--muted)">Foundation (from Foundation tab)</h4>
-        <div id="render-foundation" class="markdown-body" style="border:1px solid var(--outline2);border-radius:8px;padding:14px;margin-bottom:16px"><p style="color:var(--muted)">Loading…</p></div>
+        <div class="acc-item">
+          <button class="acc-head" data-acc="render-foundation-head" aria-expanded="false">
+            <span class="acc-title">Foundation</span>
+            <span class="acc-meta"><span class="acc-src">binding · from Foundation tab</span></span>
+            <span class="acc-chev">▾</span>
+          </button>
+          <div class="acc-body markdown-body" data-body="render-foundation-head" hidden><p style="color:var(--muted)">Loading…</p></div>
+        </div>
         <div class="viewtoggle">
           <button id="btn-render-edit" class="secondary">Edit</button>
           <button id="btn-render-preview" class="secondary active">Preview</button>
@@ -864,13 +870,24 @@ function setRenderView(mode) {
 document.getElementById("btn-render-edit").addEventListener("click", () => setRenderView("edit"));
 document.getElementById("btn-render-preview").addEventListener("click", () => setRenderView("preview"));
 
+// bind the static Foundation accordion inside the Render guide tab
+document.querySelector('#settings-render [data-acc="render-foundation-head"]').addEventListener("click", function () {
+  const head = this;
+  const body = document.querySelector('[data-body="render-foundation-head"]');
+  const open = head.getAttribute("aria-expanded") === "true";
+  head.setAttribute("aria-expanded", open ? "false" : "true");
+  body.hidden = open;
+  head.querySelector(".acc-chev").textContent = open ? "▾" : "▴";
+});
+
 async function loadRenderGuide() {
   try {
     const r = await fetch(mcpUrl + "/api/render-guide");
     const d = await r.json();
     document.getElementById("render-editor").value = d.guide;
     document.getElementById("render-preview-wrap").innerHTML = mdToHtml(d.guide);
-    document.getElementById("render-foundation").innerHTML = mdToHtml(d.foundation);
+    const fb = document.querySelector('[data-body="render-foundation-head"]');
+    if (fb) fb.innerHTML = mdToHtml(d.foundation);
     setRenderView("preview");
   } catch (e) {
     renderStatus.textContent = "Failed to load: " + e.message;
