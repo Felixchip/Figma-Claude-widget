@@ -828,7 +828,7 @@ function mdToHtml(md) {
 }
 
 function setFoundationView(mode) {
-  const editBtn = document.getElementById("btn-foundation-edit");
+  document.getElementById("btn-foundation-edit").classList.toggle("hidden", mode === "edit");
   document.getElementById("foundation-edit-wrap").classList.toggle("hidden", mode !== "edit");
   document.getElementById("foundation-preview-wrap").classList.toggle("hidden", mode !== "preview");
   if (mode === "preview") {
@@ -876,6 +876,7 @@ document.getElementById("btn-foundation-save").addEventListener("click", async (
 // render guide editor
 const renderStatus = document.getElementById("render-status");
 function setRenderView(mode) {
+  document.getElementById("btn-render-edit").classList.toggle("hidden", mode === "edit");
   document.getElementById("render-edit-wrap").classList.toggle("hidden", mode !== "edit");
   document.getElementById("render-preview-wrap").classList.toggle("hidden", mode !== "preview");
   if (mode === "preview") {
