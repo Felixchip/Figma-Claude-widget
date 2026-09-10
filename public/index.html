@@ -44,7 +44,7 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   main > section { animation: fadeSlideIn .25s ease; }
   .card { animation: fadeSlideIn .3s ease; }
-  .acc-body { animation: fadeIn .18s ease; }
+  .acc-body { transition: height .3s cubic-bezier(.4,0,.2,1); }
   .status { transition: background .15s ease, border-color .15s ease; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
@@ -128,7 +128,7 @@
   .acc-chev { width: 16px; height: 16px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); transition: transform .15s ease; }
   .acc-head[aria-expanded="true"] .acc-chev { transform: rotate(180deg); }
   .acc-chev svg { display: block; }
-  .acc-body { padding: 12px 14px; border-top: 1px solid var(--outline5); }
+  .acc-body { padding: 12px 14px; border-top: 1px solid var(--outline5); overflow: hidden; transition: height .3s cubic-bezier(.4,0,.2,1); }
   .acc-body textarea { width: 100%; }
   .subtabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--outline2); flex-wrap: wrap; }
   .subtab { background: none; border: none; border-radius: 0; color: var(--muted); padding: 10px 14px; font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s ease, border-color .15s ease, background .15s ease; }
@@ -609,6 +609,38 @@ if (new URLSearchParams(window.location.search).get("figma") === "connected") {
 checkStatus();
 refreshFigma();
 
+// Gently animate an accordion body open (drop down) or closed.
+function animateAccordion(head, body, open) {
+  if (!body) return;
+  body.style.overflow = "hidden";
+  const measure = () => {
+    body.style.display = "block";
+    body.style.height = "auto";
+    const h = body.scrollHeight;
+    body.style.height = "";
+    body.style.display = "";
+    return h;
+  };
+  const start = open ? 0 : body.scrollHeight;
+  const end = open ? measure() : 0;
+  if (!open) {
+    body.style.display = "block";
+    body.style.height = start + "px";
+    void body.offsetHeight; // commit
+  }
+  head.setAttribute("aria-expanded", open ? "true" : "false");
+  body.style.height = end + "px";
+  const onEnd = () => {
+    body.style.height = "";
+    body.style.overflow = "";
+    body.style.display = open ? "block" : "none";
+    body.removeEventListener("transitionend", onEnd);
+  };
+  body.addEventListener("transitionend", onEnd);
+  // Fallback if transition never fires (e.g. reduced motion)
+  setTimeout(onEnd, 350);
+}
+
 // component rules editor
 const rulesStatus = document.getElementById("rules-status");
 const componentsEditor = document.getElementById("components-editor");
@@ -673,9 +705,8 @@ async function renderComponents(components) {
     btn.addEventListener("click", () => {
       const key = btn.getAttribute("data-acc");
       const body = el.querySelector(`[data-body="${key}"]`);
-      const expanded = btn.getAttribute("aria-expanded") === "true";
-      btn.setAttribute("aria-expanded", expanded ? "false" : "true");
-      body.hidden = expanded;
+      const open = btn.getAttribute("aria-expanded") !== "true";
+      animateAccordion(btn, body, open);
     });
   });
 
@@ -902,9 +933,8 @@ document.getElementById("btn-render-cancel").addEventListener("click", () => set
 document.querySelector('#settings-render [data-acc="render-foundation-head"]').addEventListener("click", function () {
   const head = this;
   const body = document.querySelector('[data-body="render-foundation-head"]');
-  const open = head.getAttribute("aria-expanded") === "true";
-  head.setAttribute("aria-expanded", open ? "false" : "true");
-  body.hidden = open;
+  const open = head.getAttribute("aria-expanded") !== "true";
+  animateAccordion(head, body, open);
 });
 
 async function loadRenderGuide() {
