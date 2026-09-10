@@ -29,6 +29,7 @@ import {
   fileKeyFromUrl,
   figmaEnvToken,
   figmaEnvFileKey,
+  extractComponentStats,
 } from "./figma.js";
 import {
   getFigmaLibrary,
@@ -499,8 +500,24 @@ app.post("/api/figma/pat", async (req, res) => {
   }
 });
 
-app.get("/api/figma/status", async (_req, res) => {
+// GET /api/figma/stats — how many component images a full render pass would produce.
+app.get("/api/figma/stats", async (_req, res) => {
   const db = await store.getFigmaSettings();
+  const token = db?.token || figmaEnvToken();
+  const fileKey = db?.fileKey || figmaEnvFileKey();
+  if (!token || !fileKey) {
+    res.status(400).json({ error: "Figma not configured (token/file key)." });
+    return;
+  }
+  try {
+    const file = await figmaFile(token, fileKey);
+    res.json(extractComponentStats(file));
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+app.get("/api/figma/status", async (_req, res) => {  const db = await store.getFigmaSettings();
   const envToken = figmaEnvToken();
   const token = db?.token || envToken;
   if (!token) {

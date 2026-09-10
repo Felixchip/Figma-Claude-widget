@@ -98,6 +98,52 @@ export function extractComponents(fileData: any): ComponentMeta[] {
   return out;
 }
 
+export type ComponentStats = {
+  componentSets: number;
+  standaloneComponents: number;
+  totalComponents: number;
+  variants: number;
+  breakdown: { name: string; type: "SET" | "COMPONENT"; variants: number }[];
+};
+
+// Count what a "render everything" pass would produce. A COMPONENT_SET renders as
+// one image (its variants together); each variant inside it is also a node that
+// could be rendered separately.
+export function extractComponentStats(fileData: any): ComponentStats {
+  const docs = fileData.document?.children ?? [];
+  const breakdown: ComponentStats["breakdown"] = [];
+  let componentSets = 0;
+  let standaloneComponents = 0;
+  let variants = 0;
+
+  function walk(node: any) {
+    if (!node || typeof node !== "object") return;
+    if (node.type === "COMPONENT_SET") {
+      componentSets++;
+      const kids = Array.isArray(node.children) ? node.children : [];
+      variants += kids.length;
+      breakdown.push({ name: node.name ?? "untitled", type: "SET", variants: kids.length });
+      return;
+    }
+    if (node.type === "COMPONENT") {
+      standaloneComponents++;
+      breakdown.push({ name: node.name ?? "untitled", type: "COMPONENT", variants: 0 });
+      return;
+    }
+    const children = node.children ?? node.frames;
+    if (Array.isArray(children)) for (const c of children) walk(c);
+  }
+  for (const c of docs) walk(c);
+
+  return {
+    componentSets,
+    standaloneComponents,
+    totalComponents: componentSets + standaloneComponents,
+    variants,
+    breakdown,
+  };
+}
+
 export function extractVariables(fileVars: any): Record<string, { name: string; values: Record<string, unknown>; type: string }[]> {
   const byType: Record<string, { name: string; values: Record<string, unknown>; type: string }[]> = {};
   const collections = fileVars?.meta?.variableCollections ?? {};
