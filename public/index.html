@@ -40,12 +40,12 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
-  @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes panelIn { from { opacity: 0; } to { opacity: 1; } }
-  .panel-anim .card > * { animation: panelIn .7s ease; }
-  main > section { animation: fadeSlideIn .25s ease; }
-  .card { animation: fadeSlideIn .3s ease; }
+  .panel-anim .card > *,
+  .panel-anim > h2,
+  .panel-anim > p,
+  .panel-anim > .status { animation: panelIn .7s ease; }
   .status { transition: background .15s ease, border-color .15s ease; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
@@ -447,7 +447,12 @@ const ROUTES = {
 function showSection(sectionName) {
   document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
   const sec = document.getElementById(sectionName);
-  if (sec) sec.classList.remove("hidden");
+  if (sec) {
+    sec.classList.remove("hidden");
+    sec.classList.remove("panel-anim");
+    void sec.offsetWidth;
+    sec.classList.add("panel-anim");
+  }
 }
 
 function loadForRoute(route, subtab) {
