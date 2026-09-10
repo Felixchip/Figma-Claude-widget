@@ -101,6 +101,17 @@
   input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary3); }
   textarea { min-height: 120px; resize: vertical; }
   select { cursor: pointer; appearance: none; -webkit-appearance: none; padding-right: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23485051' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+  .dropdown { position: relative; }
+  .dropdown-trigger { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--content1); color: var(--text); border: 1px solid var(--outline2); border-radius: 8px; padding: 16px 16px; font-size: 15px; font-weight: 500; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+  .dropdown-trigger:hover { border-color: var(--outline3); }
+  .dropdown-trigger:focus-visible { outline: none; border-color: var(--primary3); box-shadow: 0 0 0 3px var(--primary1); }
+  .dropdown.open .dropdown-trigger { border-color: var(--primary3); box-shadow: 0 0 0 3px var(--primary1); }
+  .dropdown-chev { display: inline-flex; color: var(--muted); transition: transform .2s ease; }
+  .dropdown.open .dropdown-chev { transform: rotate(180deg); }
+  .dropdown-menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; background: var(--content1); border: 1px solid var(--outline2); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.10); padding: 6px; display: flex; flex-direction: column; gap: 2px; animation: panelIn .18s ease; }
+  .dropdown-item { text-align: left; background: none; color: var(--text); border: none; border-radius: 6px; padding: 12px 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background .12s ease, color .12s ease; }
+  .dropdown-item:hover { background: var(--fill1); }
+  .dropdown-item.selected { background: var(--primary1); color: var(--primary2); font-weight: 600; }
   button { background: var(--primary3); color: var(--content1); border: none; border-radius: var(--radius-pill); padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
   button:hover { background: var(--primary2); }
   button.secondary { background: var(--secondary5); color: var(--content5); border: none; }
@@ -186,14 +197,14 @@
     <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
 
     <div class="card">
-      <label for="agent-select" class="field-title">Connect your agent</label>
-      <select id="agent-select">
-        <option value="chatgpt-codex" selected>ChatGPT / Codex</option>
-        <option value="claude-code">Claude Code</option>
-        <option value="cursor">Cursor</option>
-        <option value="claude">Claude</option>
-        <option value="deepseek">DeepSeek</option>
-      </select>
+      <label class="field-title">Connect your agent</label>
+      <div class="dropdown" id="agent-dropdown">
+        <button type="button" class="dropdown-trigger" id="agent-trigger" aria-haspopup="listbox" aria-expanded="false">
+          <span id="agent-trigger-label">ChatGPT / Codex</span>
+          <span class="dropdown-chev"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>
+        <div class="dropdown-menu hidden" id="agent-menu" role="listbox"></div>
+      </div>
       <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:16px"></p>
       <div class="codewindow">
         <div class="bar">
@@ -404,16 +415,49 @@ url = "${serverUrl}"`
   }
 };
 
-function renderAgent() {
-  const key = document.getElementById("agent-select").value;
+let selectedAgent = "chatgpt-codex";
+
+function renderAgent(key) {
   const agent = AGENTS[key];
+  if (!agent) return;
+  selectedAgent = key;
+  document.getElementById("agent-trigger-label").textContent = agent.label;
   document.getElementById("agent-code").textContent = agent.code;
   document.getElementById("agent-hint").textContent = agent.hint;
   document.getElementById("copied").classList.add("hidden");
+  document.querySelectorAll("#agent-menu .dropdown-item").forEach(el =>
+    el.classList.toggle("selected", el.dataset.value === key)
+  );
 }
 
-document.getElementById("agent-select").addEventListener("change", renderAgent);
-renderAgent();
+// Build custom dropdown menu
+const agentMenu = document.getElementById("agent-menu");
+agentMenu.innerHTML = Object.entries(AGENTS).map(([key, a]) =>
+  `<button type="button" class="dropdown-item" role="option" data-value="${key}">${a.label}</button>`
+).join("");
+
+const agentTrigger = document.getElementById("agent-trigger");
+const agentDropdown = document.getElementById("agent-dropdown");
+
+function toggleAgentMenu(open) {
+  const isOpen = open ?? agentMenu.classList.contains("hidden");
+  agentMenu.classList.toggle("hidden", !isOpen);
+  agentTrigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  agentDropdown.classList.toggle("open", isOpen);
+}
+agentTrigger.addEventListener("click", (e) => { e.stopPropagation(); toggleAgentMenu(); });
+agentMenu.addEventListener("click", (e) => {
+  const item = e.target.closest(".dropdown-item");
+  if (!item) return;
+  renderAgent(item.dataset.value);
+  toggleAgentMenu(false);
+});
+document.addEventListener("click", (e) => {
+  if (!agentDropdown.contains(e.target)) toggleAgentMenu(false);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleAgentMenu(false); });
+
+renderAgent(selectedAgent);
 
 document.getElementById("btn-copy").addEventListener("click", () => {
   navigator.clipboard.writeText(document.getElementById("agent-code").textContent).then(() => {
