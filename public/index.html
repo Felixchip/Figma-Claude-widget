@@ -42,6 +42,8 @@
   html { scroll-behavior: smooth; }
   @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .panel-anim { animation: panelIn .22s ease; }
   main > section { animation: fadeSlideIn .25s ease; }
   .card { animation: fadeSlideIn .3s ease; }
   .status { transition: background .15s ease, border-color .15s ease; }
@@ -487,6 +489,12 @@ document.querySelectorAll("nav a").forEach(a => {
 function switchSubtab(name, silent) {
   document.querySelectorAll(".subtab").forEach(b => b.classList.toggle("active", b.dataset.subtab === name));
   document.querySelectorAll(".subpanel").forEach(p => p.classList.toggle("hidden", p.id !== name));
+  const panel = document.getElementById(name);
+  if (panel) {
+    panel.classList.remove("panel-anim");
+    void panel.offsetWidth; // restart animation
+    panel.classList.add("panel-anim");
+  }
   if (name === "settings-rules") loadComponents();
   if (name === "settings-foundation") loadFoundationEditor();
   if (name === "settings-render") loadRenderGuide();
