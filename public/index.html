@@ -49,7 +49,12 @@
   .panel-anim > h2,
   .panel-anim > p,
   .panel-anim > .status { animation: panelIn .6s cubic-bezier(.22,.61,.36,1) both; }
-  .status { transition: background .15s ease, border-color .15s ease; }
+  .status { transition: background .4s ease, border-color .4s ease, color .4s ease; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); transition: background .4s ease; }
+  .status.off .dot { background: var(--red); }
+  @keyframes statusTextIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  .status-text-swap { animation: statusTextIn .45s ease both; }
+  #figma-verify-detail, #figma-info { transition: opacity .4s ease; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   }
@@ -72,8 +77,6 @@
   #overview .status { margin-bottom: 24px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin: 16px 0; }
   .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: var(--radius-pill); font-size: 13px; border: 1px solid var(--border); background: var(--panel); }
-  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
-  .status.off .dot { background: var(--red); }
   code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   code { background: var(--primary1); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--primary2); }
   pre { background: var(--secondary2); color: #E6E9F0; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-x: auto; font-size: 13px; margin: 12px 0; white-space: pre-wrap; word-break: break-word; }
@@ -549,31 +552,46 @@ Connect the gsa-build-kit MCP before running this.`;
 });
 
 // figma settings
+// Smoothly swap an element's text with a gentle fade/rise.
+function setTextSmooth(el, value) {
+  if (!el) return;
+  if (el.textContent === value) return;
+  el.textContent = value;
+  el.classList.remove("status-text-swap");
+  void el.offsetWidth;
+  el.classList.add("status-text-swap");
+}
+
 async function verifyFigma() {
   const v = document.getElementById("figma-verify");
-  v.style.display = "block";
+  if (v.style.display !== "block") {
+    v.style.display = "block";
+    v.classList.remove("status-text-swap");
+    void v.offsetWidth;
+    v.classList.add("status-text-swap");
+  }
   const status = document.getElementById("figma-verify-status");
   const text = document.getElementById("figma-verify-text");
   const detail = document.getElementById("figma-verify-detail");
   status.classList.remove("off");
-  text.textContent = "Verifying…";
-  detail.textContent = "";
+  setTextSmooth(text, "Verifying…");
+  setTextSmooth(detail, "");
   try {
     const r = await fetch(mcpUrl + "/api/figma/verify", { method: "POST" });
     const d = await r.json();
     if (d.connected) {
       status.classList.remove("off");
-      text.textContent = `Connected to Figma library "${d.fileName}"`;
-      detail.textContent = `File key ${d.fileKey} · ${d.pages.length} pages · modified ${new Date(d.lastModified).toLocaleString()} · as ${d.userName}`;
+      setTextSmooth(text, `Connected to Figma library "${d.fileName}"`);
+      setTextSmooth(detail, `File key ${d.fileKey} · ${d.pages.length} pages · modified ${new Date(d.lastModified).toLocaleString()} · as ${d.userName}`);
     } else {
       status.classList.add("off");
-      text.textContent = "Connection failed";
-      detail.textContent = d.error || "Could not reach Figma.";
+      setTextSmooth(text, "Connection failed");
+      setTextSmooth(detail, d.error || "Could not reach Figma.");
     }
   } catch (e) {
     status.classList.add("off");
-    text.textContent = "Connection failed";
-    detail.textContent = "Request error: " + e.message;
+    setTextSmooth(text, "Connection failed");
+    setTextSmooth(detail, "Request error: " + e.message);
   }
 }
 
@@ -586,7 +604,7 @@ async function refreshFigma() {
     if (d.connected) {
       notConnected.classList.add("hidden");
       connected.classList.remove("hidden");
-      document.getElementById("figma-info").textContent = `Library: ${d.fileName || d.fileKey || "not picked yet"}`;
+      setTextSmooth(document.getElementById("figma-info"), `Library: ${d.fileName || d.fileKey || "not picked yet"}`);
       verifyFigma();
     } else {
       connected.classList.add("hidden");
