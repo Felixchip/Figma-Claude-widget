@@ -190,7 +190,7 @@
         <option value="chatgpt-codex" selected>ChatGPT / Codex</option>
         <option value="claude-code">Claude Code</option>
         <option value="cursor">Cursor</option>
-        <option value="vscode">VS Code</option>
+        <option value="claude">Claude</option>
         <option value="deepseek">DeepSeek</option>
       </select>
       <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:16px"></p>
@@ -387,14 +387,10 @@ url = "${serverUrl}"`
   }
 }`
   },
-  "vscode": {
-    label: "VS Code",
-    hint: "Add to .vscode/mcp.json (workspace) or run MCP: Add Server → HTTP. Note the 'servers' key and 'type': 'http'.",
-    code: `{
-  "servers": {
-    "gsa-build-kit": { "type": "http", "url": "${serverUrl}" }
-  }
-}`
+  "claude": {
+    label: "Claude",
+    hint: "In the Claude app (claude.ai or Claude Desktop): Settings → Connectors → Add custom connector, then paste the URL. (For the CLI, use the Claude Code option.)",
+    code: `${serverUrl}`
   },
   "deepseek": {
     label: "DeepSeek",
