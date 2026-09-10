@@ -369,21 +369,18 @@ const serverUrl = mcpUrl + "/mcp";
 const AGENTS = {
   "chatgpt-codex": {
     label: "ChatGPT / Codex",
-    hint: "ChatGPT: add as an MCP connector in Developer mode. Codex: add to your mcp config.",
-    code: `{
-  "mcpServers": {
-    "gsa-build-kit": { "url": "${serverUrl}" }
-  }
-}`
+    hint: "ChatGPT desktop app: Settings → MCP servers → Add server → Streamable HTTP, paste the URL. Codex CLI/IDE: add the TOML to ~/.codex/config.toml (or .codex/config.toml).",
+    code: `[mcp_servers.gsa-build-kit]
+url = "${serverUrl}"`
   },
   "claude-code": {
     label: "Claude Code",
-    hint: "Run this command in your terminal.",
+    hint: "Run this in your terminal. Use --scope user to enable it across all projects.",
     code: `claude mcp add --transport http gsa-build-kit ${serverUrl}`
   },
   "cursor": {
     label: "Cursor",
-    hint: "Cursor Settings → MCP → + Add new global MCP server.",
+    hint: "Add to ~/.cursor/mcp.json (global) or .cursor/mcp.json (project).",
     code: `{
   "mcpServers": {
     "gsa-build-kit": { "url": "${serverUrl}" }
@@ -392,12 +389,16 @@ const AGENTS = {
   },
   "vscode": {
     label: "VS Code",
-    hint: "Use MCP: Add Server → HTTP, then enter this URL.",
-    code: `${serverUrl}`
+    hint: "Add to .vscode/mcp.json (workspace) or run MCP: Add Server → HTTP. Note the 'servers' key and 'type': 'http'.",
+    code: `{
+  "servers": {
+    "gsa-build-kit": { "type": "http", "url": "${serverUrl}" }
+  }
+}`
   },
   "deepseek": {
     label: "DeepSeek",
-    hint: "Add to your MCP-compatible client (e.g. Cline, Continue).",
+    hint: "DeepSeek has no first-party MCP client yet. Use an MCP-capable client (Cline, Continue, Roo Code) and add this server there.",
     code: `{
   "mcpServers": {
     "gsa-build-kit": { "url": "${serverUrl}" }
