@@ -101,7 +101,7 @@
   input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary3); }
   textarea { min-height: 120px; resize: vertical; }
   select { cursor: pointer; appearance: none; -webkit-appearance: none; padding-right: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23485051' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
-  .dropdown { position: relative; }
+  .dropdown { position: relative; z-index: 30; }
   .dropdown-trigger { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--content1) !important; color: var(--text); border: 1px solid var(--outline2); border-radius: 8px; padding: 16px; font-size: 15px; font-weight: 500; line-height: 1.2; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
   .dropdown-trigger:hover { background: var(--fill1) !important; border-color: var(--outline3); }
   .dropdown-trigger:focus-visible { outline: none; border-color: var(--primary3); box-shadow: 0 0 0 3px var(--primary1); }
