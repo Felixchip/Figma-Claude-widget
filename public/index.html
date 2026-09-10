@@ -129,7 +129,8 @@
   .acc-chev svg { display: block; }
   .acc-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .5s cubic-bezier(.4,0,.2,1); }
   .acc-body.open { grid-template-rows: 1fr; }
-  .acc-inner { overflow: hidden; min-height: 0; padding: 12px 14px; border-top: 1px solid var(--outline5); }
+  .acc-inner { overflow: hidden; min-height: 0; }
+  .acc-inner .acc-content { padding: 12px 14px; border-top: 1px solid var(--outline5); }
   .acc-inner textarea { width: 100%; }
   .subtabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--outline2); flex-wrap: wrap; }
   .subtab { background: none; border: none; border-radius: 0; color: var(--muted); padding: 10px 14px; font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s ease, border-color .15s ease, background .15s ease; }
@@ -317,7 +318,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
             <span class="acc-chev"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </button>
           <div class="acc-body" data-body="render-foundation-head">
-            <div class="acc-inner markdown-body"><p style="color:var(--muted)">Loading…</p></div>
+            <div class="acc-inner"><div class="acc-content markdown-body"><p style="color:var(--muted)">Loading…</p></div></div>
           </div>
         </div>
         <div id="render-preview-wrap" class="markdown-body" style="margin-top:8px"><p style="color:var(--muted)">Loading…</p></div>
@@ -669,10 +670,12 @@ async function renderComponents(components) {
       </button>
       <div class="acc-body" data-body="${c.key}">
         <div class="acc-inner">
-          <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
-          <div style="margin-top:8px;display:flex;align-items:center;gap:12px">
-            <button data-save="${c.key}" style="padding:8px 18px;font-size:13px">Save rule</button>
-            <span data-status="${c.key}" style="font-size:12px;color:var(--muted)"></span>
+          <div class="acc-content">
+            <textarea data-key="${c.key}" placeholder="No rule yet. Define how this component should be used…" style="min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${c.rule || ""}</textarea>
+            <div style="margin-top:8px;display:flex;align-items:center;gap:12px">
+              <button data-save="${c.key}" style="padding:8px 18px;font-size:13px">Save rule</button>
+              <span data-status="${c.key}" style="font-size:12px;color:var(--muted)"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -923,7 +926,7 @@ async function loadRenderGuide() {
     const d = await r.json();
     document.getElementById("render-editor").value = d.guide;
     document.getElementById("render-preview-wrap").innerHTML = mdToHtml(d.guide);
-    const fb = document.querySelector('[data-body="render-foundation-head"] .acc-inner');
+    const fb = document.querySelector('[data-body="render-foundation-head"] .acc-content');
     if (fb) fb.innerHTML = mdToHtml(d.foundation);
     document.getElementById("render-edit-wrap").classList.add("hidden");
     document.getElementById("render-preview-wrap").classList.remove("hidden");
