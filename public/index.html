@@ -62,7 +62,7 @@
   header { padding: 20px 32px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; background: var(--content1); z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04); }
   header h1 { font-size: 16px; font-weight: 600; } /* GSATypography.labelOne */
   header .logo { height: 28px; width: auto; display: block; }
-  header .brand-home { display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; }
+  header .brand-home { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; cursor: pointer; }
   header .brand-divider { color: var(--border); font-size: 20px; font-weight: 300; }
   header .brand-sub { font-size: 16px; font-weight: 600; color: var(--text); }
   nav { display: flex; gap: 4px; margin-left: auto; }
@@ -180,9 +180,11 @@
 </head>
 <body>
 <header>
-  <a href="/" class="brand-home" aria-label="Go to Overview"><img src="/CMC logo.svg" alt="CMC" class="logo"></a>
-  <span class="brand-divider">|</span>
-  <span class="brand-sub">Build kit</span>
+  <a href="/" class="brand-home" aria-label="Go to Overview">
+    <img src="/CMC logo.svg" alt="CMC" class="logo">
+    <span class="brand-divider">|</span>
+    <span class="brand-sub">Build kit</span>
+  </a>
   <nav>
     <a href="/" class="active" data-route="overview">Overview</a>
     <a href="/settings" data-route="settings">Settings</a>
