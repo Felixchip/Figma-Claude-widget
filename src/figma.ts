@@ -107,7 +107,8 @@ export type RenderTarget = {
 // - small sets (<= maxSetVariants) render as one set image (all variants together)
 // - large sets render up to maxVariantsPerSet representative variants
 // - Flags render every flag individually
-// Standalone components render as-is. Dedupes by node id.
+// Standalone components render as-is. Dedupes by name (preferring sets) so
+// duplicate nodes across pages don't render repeatedly.
 export function extractRenderTargets(
   fileData: any,
   opts: { maxSetVariants?: number; maxVariantsPerSet?: number } = {}
@@ -115,40 +116,47 @@ export function extractRenderTargets(
   const maxSetVariants = opts.maxSetVariants ?? 40;
   const maxVariantsPerSet = opts.maxVariantsPerSet ?? 6;
   const docs = fileData.document?.children ?? [];
-  const seen = new Set<string>();
-  const targets: RenderTarget[] = [];
 
-  function add(name: string, nodeId: string, group: string, kind: RenderTarget["kind"]) {
-    if (!nodeId || seen.has(nodeId)) return;
-    seen.add(nodeId);
-    targets.push({ name, nodeId, group, kind });
-  }
-
-  function walk(node: any) {
+  // Collect by name, preferring a component set over a standalone component.
+  const byName = new Map<string, { name: string; id: string; type: "SET" | "COMPONENT"; kids: any[] }>();
+  function collect(node: any) {
     if (!node || typeof node !== "object") return;
     const name: string = node.name ?? "";
+    const key = name.trim().toLowerCase();
     if (node.type === "COMPONENT_SET") {
       if (!isNoiseComponent(name)) {
-        const kids: any[] = Array.isArray(node.children) ? node.children.filter((c: any) => c.type === "COMPONENT") : [];
-        if (name === "Flags") {
-          // Each flag is a variant; render them all.
-          for (const k of kids) add(k.name ?? "flag", k.id, name, "variant");
-        } else if (kids.length <= maxSetVariants) {
-          add(name, node.id, name, "set");
-        } else {
-          for (const k of kids.slice(0, maxVariantsPerSet)) add(`${name} — ${k.name}`, k.id, name, "variant");
-        }
+        const kids = Array.isArray(node.children) ? node.children.filter((c: any) => c.type === "COMPONENT") : [];
+        byName.set(key, { name, id: node.id, type: "SET", kids });
       }
       return;
     }
     if (node.type === "COMPONENT") {
-      if (!isNoiseComponent(name)) add(name, node.id, name, "component");
+      if (!isNoiseComponent(name) && !byName.has(key)) {
+        byName.set(key, { name, id: node.id, type: "COMPONENT", kids: [] });
+      }
       return;
     }
     const children = node.children ?? node.frames;
-    if (Array.isArray(children)) for (const c of children) walk(c);
+    if (Array.isArray(children)) for (const c of children) collect(c);
   }
-  for (const c of docs) walk(c);
+  for (const c of docs) collect(c);
+
+  const targets: RenderTarget[] = [];
+  for (const entry of byName.values()) {
+    if (entry.type === "COMPONENT") {
+      targets.push({ name: entry.name, nodeId: entry.id, group: entry.name, kind: "component" });
+      continue;
+    }
+    if (entry.name === "Flags") {
+      for (const k of entry.kids) targets.push({ name: k.name ?? "flag", nodeId: k.id, group: entry.name, kind: "variant" });
+    } else if (entry.kids.length <= maxSetVariants) {
+      targets.push({ name: entry.name, nodeId: entry.id, group: entry.name, kind: "set" });
+    } else {
+      for (const k of entry.kids.slice(0, maxVariantsPerSet)) {
+        targets.push({ name: `${entry.name} — ${k.name}`, nodeId: k.id, group: entry.name, kind: "variant" });
+      }
+    }
+  }
   return targets;
 }
 
@@ -215,35 +223,35 @@ export type ComponentStats = {
 // could be rendered separately.
 export function extractComponentStats(fileData: any): ComponentStats {
   const docs = fileData.document?.children ?? [];
-  const breakdown: ComponentStats["breakdown"] = [];
-  const seen = new Set<string>();
-  let componentSets = 0;
-  let standaloneComponents = 0;
-  let variants = 0;
+  // Dedupe by name, preferring a component set (it carries the variants).
+  const byName = new Map<string, { name: string; type: "SET" | "COMPONENT"; variants: number }>();
 
   function walk(node: any) {
     if (!node || typeof node !== "object") return;
     const name: string = node.name ?? "untitled";
+    const key = name.trim().toLowerCase();
     if (node.type === "COMPONENT_SET") {
-      if (seen.has(node.id) || isNoiseComponent(name)) return;
-      seen.add(node.id);
-      componentSets++;
-      const kids = Array.isArray(node.children) ? node.children : [];
-      variants += kids.length;
-      breakdown.push({ name, type: "SET", variants: kids.length });
+      if (!isNoiseComponent(name)) {
+        const kids = Array.isArray(node.children) ? node.children : [];
+        byName.set(key, { name, type: "SET", variants: kids.length });
+      }
       return;
     }
     if (node.type === "COMPONENT") {
-      if (seen.has(node.id) || isNoiseComponent(name)) return;
-      seen.add(node.id);
-      standaloneComponents++;
-      breakdown.push({ name, type: "COMPONENT", variants: 0 });
+      if (!isNoiseComponent(name) && !byName.has(key)) {
+        byName.set(key, { name, type: "COMPONENT", variants: 0 });
+      }
       return;
     }
     const children = node.children ?? node.frames;
     if (Array.isArray(children)) for (const c of children) walk(c);
   }
   for (const c of docs) walk(c);
+
+  const breakdown = [...byName.values()];
+  const componentSets = breakdown.filter((b) => b.type === "SET").length;
+  const standaloneComponents = breakdown.filter((b) => b.type === "COMPONENT").length;
+  const variants = breakdown.reduce((n, b) => n + b.variants, 0);
 
   return {
     componentSets,
