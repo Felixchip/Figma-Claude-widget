@@ -78,6 +78,137 @@ export type ComponentMeta = {
   description: string;
 };
 
+// Figma files contain a lot of non-design-system noise (deprecated sets, layout
+// frames, OS chrome, utility shapes). Filter it out so the component list and the
+// render pass only cover real components.
+export function isNoiseComponent(name: string): boolean {
+  const n = name.trim();
+  if (!n) return true;
+  if (/\[deprecated\]/i.test(n)) return true;
+  if (/^[_]/.test(n)) return true;              // hidden
+  if (/^[→←↑↓]/.test(n)) return true;           // annotation/pointer nodes
+  if (/^Frame \d+/i.test(n)) return true;
+  if (/^Component \d+/i.test(n)) return true;
+  if (/^placeholder\b/i.test(n)) return true;
+  if (/^(page|line|dot)$/i.test(n)) return true;
+  if (/^Status bar\b/i.test(n)) return true;
+  if (/^Home Indicator\b/i.test(n)) return true;
+  if (/^Toolbar - Top\b/i.test(n)) return true;
+  if (/^CMC logo$/i.test(n)) return true;
+  return false;
+}
+
+// Curated mapping of real GSA components to their Figma component-set names. Used
+// to decide what to render. Flags are handled specially (render each flag).
+export const CURATED_FIGMA_SETS = [
+  "Button",
+  "Change dynamic",
+  "Change percentage",
+  "Checkbox",
+  "Chip",
+  "Chip-small",
+  "Flags",
+  "Stock",
+  "ETF Instrument",
+  "Index Instrument",
+  "Instrument card",
+  "Radio button",
+  "GSA - iOS Segmented control/apple",
+  "Toolbar - Top - Sheet",
+  "Slider",
+  "Sparkline",
+  "Tab Bar - iPhone/True/False/5",
+  "Text fields",
+  "Toggle switch",
+];
+
+export type RenderTarget = {
+  name: string;
+  nodeId: string;
+  group: string;
+  kind: "set" | "variant" | "component";
+};
+
+// Pick which nodes to render. For each curated component:
+// - small sets (<= MAX_SET_VARIANTS) render as one set image (all variants together)
+// - large sets render up to MAX_VARIANTS_PER_SET representative variants
+// - Flags render every flag individually
+// Standalone components render as-is. Dedupes by node id.
+export function extractRenderTargets(
+  fileData: any,
+  opts: { maxSetVariants?: number; maxVariantsPerSet?: number } = {}
+): RenderTarget[] {
+  const maxSetVariants = opts.maxSetVariants ?? 40;
+  const maxVariantsPerSet = opts.maxVariantsPerSet ?? 6;
+  const curated = new Set(CURATED_FIGMA_SETS);
+  const docs = fileData.document?.children ?? [];
+  const seen = new Set<string>();
+  const targets: RenderTarget[] = [];
+
+  function add(name: string, nodeId: string, group: string, kind: RenderTarget["kind"]) {
+    if (!nodeId || seen.has(nodeId)) return;
+    seen.add(nodeId);
+    targets.push({ name, nodeId, group, kind });
+  }
+
+  function walk(node: any) {
+    if (!node || typeof node !== "object") return;
+    const name: string = node.name ?? "";
+    if (node.type === "COMPONENT_SET") {
+      if (curated.has(name) && !isNoiseComponent(name)) {
+        const kids: any[] = Array.isArray(node.children) ? node.children.filter((c: any) => c.type === "COMPONENT") : [];
+        if (name === "Flags") {
+          // Each flag is a variant; render them all.
+          for (const k of kids) add(k.name ?? "flag", k.id, name, "variant");
+        } else if (kids.length <= maxSetVariants) {
+          add(name, node.id, name, "set");
+        } else {
+          for (const k of kids.slice(0, maxVariantsPerSet)) add(`${name} — ${k.name}`, k.id, name, "variant");
+        }
+      }
+      return;
+    }
+    if (node.type === "COMPONENT") {
+      if (curated.has(name) && !isNoiseComponent(name)) add(name, node.id, name, "component");
+      return;
+    }
+    const children = node.children ?? node.frames;
+    if (Array.isArray(children)) for (const c of children) walk(c);
+  }
+  for (const c of docs) walk(c);
+  return targets;
+}
+
+// Render nodes to images via the Figma Images API. Returns { nodeId: url }.
+// The returned URLs are temporary (S3); callers should fetch and cache them.
+export async function figmaImages(
+  token: string,
+  fileKey: string,
+  nodeIds: string[],
+  opts: { format?: "png" | "jpg" | "svg"; scale?: number } = {}
+): Promise<Record<string, string>> {
+  const format = opts.format ?? "png";
+  const scale = opts.scale ?? 2;
+  const params = new URLSearchParams({
+    ids: nodeIds.join(","),
+    format,
+    scale: String(scale),
+  });
+  const data = await figmaFetch(
+    token,
+    `/v1/images/${encodeURIComponent(fileKey)}?${params.toString()}`
+  );
+  return (data.images ?? {}) as Record<string, string>;
+}
+
+export async function downloadImage(url: string): Promise<{ data: Buffer; mime: string }> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Image download failed ${res.status}`);
+  const mime = res.headers.get("content-type") ?? "image/png";
+  const buf = Buffer.from(await res.arrayBuffer());
+  return { data: buf, mime };
+}
+
 export function extractComponents(fileData: any): ComponentMeta[] {
   const docs = fileData.document?.children ?? [];
   const out: ComponentMeta[] = [];
@@ -112,22 +243,28 @@ export type ComponentStats = {
 export function extractComponentStats(fileData: any): ComponentStats {
   const docs = fileData.document?.children ?? [];
   const breakdown: ComponentStats["breakdown"] = [];
+  const seen = new Set<string>();
   let componentSets = 0;
   let standaloneComponents = 0;
   let variants = 0;
 
   function walk(node: any) {
     if (!node || typeof node !== "object") return;
+    const name: string = node.name ?? "untitled";
     if (node.type === "COMPONENT_SET") {
+      if (seen.has(node.id) || isNoiseComponent(name)) return;
+      seen.add(node.id);
       componentSets++;
       const kids = Array.isArray(node.children) ? node.children : [];
       variants += kids.length;
-      breakdown.push({ name: node.name ?? "untitled", type: "SET", variants: kids.length });
+      breakdown.push({ name, type: "SET", variants: kids.length });
       return;
     }
     if (node.type === "COMPONENT") {
+      if (seen.has(node.id) || isNoiseComponent(name)) return;
+      seen.add(node.id);
       standaloneComponents++;
-      breakdown.push({ name: node.name ?? "untitled", type: "COMPONENT", variants: 0 });
+      breakdown.push({ name, type: "COMPONENT", variants: 0 });
       return;
     }
     const children = node.children ?? node.frames;

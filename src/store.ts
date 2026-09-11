@@ -47,7 +47,24 @@ export interface SpecStore {
   saveRegistry(entries: unknown[]): Promise<void>;
   getAliases(): Promise<unknown[]>;
   saveAliases(aliases: unknown[]): Promise<void>;
+  getImage(nodeId: string): Promise<ComponentImage | undefined>;
+  saveImage(img: ComponentImage): Promise<void>;
+  listImages(): Promise<ComponentImageMeta[]>;
+  clearImages(): Promise<void>;
 }
+
+export type ComponentImage = {
+  nodeId: string;
+  fileKey: string;
+  fileVersion: string;
+  name: string;
+  group: string;
+  mime: string;
+  data: Buffer;
+  fetchedAt: string;
+};
+
+export type ComponentImageMeta = Omit<ComponentImage, "data"> & { bytes: number };
 
 function toSpec(row: any): Spec {
   return {
@@ -99,6 +116,18 @@ class PostgresStore implements SpecStore {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL
+      )
+    `);
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS component_images (
+        node_id TEXT PRIMARY KEY,
+        file_key TEXT NOT NULL DEFAULT '',
+        file_version TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        group_name TEXT NOT NULL DEFAULT '',
+        mime TEXT NOT NULL DEFAULT 'image/png',
+        data BYTEA NOT NULL,
+        fetched_at TIMESTAMPTZ NOT NULL
       )
     `);
     this.ready = true;
@@ -199,6 +228,58 @@ class PostgresStore implements SpecStore {
     await this.setSetting("component_aliases", JSON.stringify(aliases));
   }
 
+  async getImage(nodeId: string): Promise<ComponentImage | undefined> {
+    const res = await this.pool.query("SELECT * FROM component_images WHERE node_id = $1", [nodeId]);
+    if (res.rows.length === 0) return undefined;
+    const r = res.rows[0];
+    return {
+      nodeId: r.node_id,
+      fileKey: r.file_key,
+      fileVersion: r.file_version,
+      name: r.name,
+      group: r.group_name,
+      mime: r.mime,
+      data: r.data,
+      fetchedAt: r.fetched_at,
+    };
+  }
+
+  async saveImage(img: ComponentImage): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO component_images (node_id, file_key, file_version, name, group_name, mime, data, fetched_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (node_id) DO UPDATE SET
+         file_key = EXCLUDED.file_key,
+         file_version = EXCLUDED.file_version,
+         name = EXCLUDED.name,
+         group_name = EXCLUDED.group_name,
+         mime = EXCLUDED.mime,
+         data = EXCLUDED.data,
+         fetched_at = EXCLUDED.fetched_at`,
+      [img.nodeId, img.fileKey, img.fileVersion, img.name, img.group, img.mime, img.data, img.fetchedAt]
+    );
+  }
+
+  async listImages(): Promise<ComponentImageMeta[]> {
+    const res = await this.pool.query(
+      "SELECT node_id, file_key, file_version, name, group_name, mime, fetched_at, octet_length(data) AS bytes FROM component_images ORDER BY group_name, name"
+    );
+    return res.rows.map((r) => ({
+      nodeId: r.node_id,
+      fileKey: r.file_key,
+      fileVersion: r.file_version,
+      name: r.name,
+      group: r.group_name,
+      mime: r.mime,
+      fetchedAt: r.fetched_at,
+      bytes: Number(r.bytes),
+    }));
+  }
+
+  async clearImages(): Promise<void> {
+    await this.pool.query("DELETE FROM component_images");
+  }
+
   async list(): Promise<SpecRow[]> {
     const res = await this.pool.query(
       "SELECT id, node_id, updated_at FROM specs ORDER BY updated_at DESC"
@@ -242,6 +323,7 @@ class PostgresStore implements SpecStore {
 class MemoryStore implements SpecStore {
   private specs = new Map<string, Spec>();
   private settings = new Map<string, string>();
+  private images = new Map<string, ComponentImage>();
   readonly kind = "memory" as const;
   ready = true;
 
@@ -344,6 +426,31 @@ class MemoryStore implements SpecStore {
 
   async saveAliases(aliases: unknown[]): Promise<void> {
     this.settings.set("component_aliases", JSON.stringify(aliases));
+  }
+
+  async getImage(nodeId: string): Promise<ComponentImage | undefined> {
+    return this.images.get(nodeId);
+  }
+
+  async saveImage(img: ComponentImage): Promise<void> {
+    this.images.set(img.nodeId, img);
+  }
+
+  async listImages(): Promise<ComponentImageMeta[]> {
+    return [...this.images.values()].map((img) => ({
+      nodeId: img.nodeId,
+      fileKey: img.fileKey,
+      fileVersion: img.fileVersion,
+      name: img.name,
+      group: img.group,
+      mime: img.mime,
+      fetchedAt: img.fetchedAt,
+      bytes: img.data.length,
+    }));
+  }
+
+  async clearImages(): Promise<void> {
+    this.images.clear();
   }
 }
 

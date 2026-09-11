@@ -30,6 +30,9 @@ import {
   figmaEnvToken,
   figmaEnvFileKey,
   extractComponentStats,
+  extractRenderTargets,
+  figmaImages,
+  downloadImage,
 } from "./figma.js";
 import {
   getFigmaLibrary,
@@ -91,6 +94,42 @@ async function loadRenderGuide(): Promise<string> {
 
 async function loadAliases(): Promise<ComponentAlias[]> {
   return (await store.getAliases()) as ComponentAlias[];
+}
+
+// --- Figma component image rendering ---------------------------------------
+
+async function effectiveFigma(): Promise<{ token?: string; fileKey?: string }> {
+  const db = await store.getFigmaSettings();
+  return { token: db?.token || figmaEnvToken(), fileKey: db?.fileKey || figmaEnvFileKey() };
+}
+
+type RenderedImage = { mime: string; base64: string; url: string } | { error: string };
+
+// Render a Figma node to a PNG and cache it (keyed by node id + file version).
+async function renderAndCache(nodeId: string, name: string, group: string): Promise<RenderedImage> {
+  const { token, fileKey } = await effectiveFigma();
+  if (!token || !fileKey) return { error: "Figma is not configured (token/file key)." };
+  const file = await figmaFile(token, fileKey);
+  const version: string = file.version ?? "";
+  const cached = await store.getImage(nodeId);
+  if (cached && cached.fileVersion === version) {
+    return { mime: cached.mime, base64: cached.data.toString("base64"), url: `/api/figma/image/${encodeURIComponent(nodeId)}` };
+  }
+  const images = await figmaImages(token, fileKey, [nodeId], { format: "png", scale: 2 });
+  const src = images[nodeId];
+  if (!src) return { error: `Figma returned no image for node ${nodeId}.` };
+  const { data, mime } = await downloadImage(src);
+  await store.saveImage({
+    nodeId,
+    fileKey,
+    fileVersion: version,
+    name,
+    group,
+    mime,
+    data,
+    fetchedAt: new Date().toISOString(),
+  });
+  return { mime, base64: data.toString("base64"), url: `/api/figma/image/${encodeURIComponent(nodeId)}` };
 }
 
 // All tools are read-only: they read the design library, the components repo, and
@@ -343,6 +382,68 @@ function createMcpServer(): McpServer {
     async () => figmaGuardrail(await getFigmaTokens(store))
   );
 
+  // --- Component image rendering -------------------------------------------
+  const imageResult = (r: RenderedImage) => {
+    if ("error" in r) return { content: [{ type: "text" as const, text: r.error }], isError: true };
+    return {
+      content: [
+        { type: "image" as const, data: r.base64, mimeType: r.mime },
+        { type: "text" as const, text: `Rendered component image. URL: ${r.url}` },
+      ],
+    };
+  };
+
+  server.registerTool(
+    "render_figma_node",
+    {
+      title: "Render a Figma node as an image",
+      description:
+        "Render a specific Figma node (by node id, e.g. from a Figma URL or a component id) to an image and return it. " +
+        "Use this to get a real visual reference of a component before generating a mockup. Cached after the first render.",
+      inputSchema: { nodeId: z.string().describe("Figma node id, e.g. '12:34'.") },
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ nodeId }) => {
+      try {
+        return imageResult(await renderAndCache(nodeId, "", ""));
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+      }
+    }
+  );
+
+  server.registerTool(
+    "get_component_render",
+    {
+      title: "Get a rendered component image",
+      description:
+        "Get a real rendered image of a design-system component by name (e.g. 'Button', 'Toggle switch', 'Checkbox'). " +
+        "Use this for visual reference when generating an on-brand mockup image. Cached after the first render.",
+      inputSchema: { query: z.string().describe("Component name (exact or partial).") },
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ query }) => {
+      try {
+        const { token, fileKey } = await effectiveFigma();
+        if (!token || !fileKey) return { content: [{ type: "text" as const, text: "Figma is not configured." }], isError: true };
+        const file = await figmaFile(token, fileKey);
+        const targets = extractRenderTargets(file);
+        const q = query.toLowerCase();
+        const t =
+          targets.find((x) => x.name.toLowerCase() === q) ||
+          targets.find((x) => x.name.toLowerCase().includes(q)) ||
+          targets.find((x) => x.group.toLowerCase().includes(q));
+        if (!t) {
+          const names = [...new Set(targets.map((x) => x.group || x.name))].slice(0, 40).join(", ");
+          return { content: [{ type: "text" as const, text: `No component matching '${query}'. Available: ${names}` }], isError: true };
+        }
+        return imageResult(await renderAndCache(t.nodeId, t.name, t.group));
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+      }
+    }
+  );
+
   return server;
 }
 
@@ -517,7 +618,54 @@ app.get("/api/figma/stats", async (_req, res) => {
   }
 });
 
-app.get("/api/figma/status", async (_req, res) => {  const db = await store.getFigmaSettings();
+// GET /api/figma/image/:nodeId — serve a cached component render.
+app.get("/api/figma/image/:nodeId", async (req, res) => {
+  const img = await store.getImage(req.params.nodeId);
+  if (!img) {
+    res.status(404).json({ error: "Not rendered yet. Call render_figma_node first." });
+    return;
+  }
+  res.setHeader("Content-Type", img.mime);
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(img.data);
+});
+
+// GET /api/figma/images — list cached component renders.
+app.get("/api/figma/images", async (_req, res) => {
+  res.json({ images: await store.listImages() });
+});
+
+// POST /api/figma/render — warm the curated component render cache (admin).
+app.post("/api/figma/render", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  const { token, fileKey } = await effectiveFigma();
+  if (!token || !fileKey) {
+    res.status(400).json({ error: "Figma not configured (token/file key)." });
+    return;
+  }
+  try {
+    const file = await figmaFile(token, fileKey);
+    const targets = extractRenderTargets(file);
+    const results: { nodeId: string; name: string; ok: boolean; error?: string }[] = [];
+    for (const t of targets) {
+      try {
+        const r = await renderAndCache(t.nodeId, t.name, t.group);
+        results.push({ nodeId: t.nodeId, name: t.name, ok: !("error" in r), error: "error" in r ? r.error : undefined });
+      } catch (err) {
+        results.push({ nodeId: t.nodeId, name: t.name, ok: false, error: (err as Error).message });
+      }
+    }
+    res.json({ count: targets.length, rendered: results.filter((r) => r.ok).length, results });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+app.get("/api/figma/status", async (_req, res) => {
+  const db = await store.getFigmaSettings();
   const envToken = figmaEnvToken();
   const token = db?.token || envToken;
   if (!token) {
