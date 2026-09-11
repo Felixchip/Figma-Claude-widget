@@ -132,6 +132,81 @@ async function renderAndCache(nodeId: string, name: string, group: string): Prom
   return { mime, base64: data.toString("base64"), url: `/api/figma/image/${encodeURIComponent(nodeId)}` };
 }
 
+// ---- Background render-cache warm-up -------------------------------------
+// Rendering ~75 nodes can take minutes, so we never do it inside a request
+// (Railway's proxy would 502). Instead the POST starts a job and returns
+// immediately; progress is polled via GET /api/figma/render/status.
+type RenderJob = {
+  running: boolean;
+  total: number;
+  done: number;
+  rendered: number;
+  failed: number;
+  startedAt?: string;
+  finishedAt?: string;
+  errors: { name: string; nodeId: string; error: string }[];
+};
+let renderJob: RenderJob = { running: false, total: 0, done: 0, rendered: 0, failed: 0, errors: [] };
+
+const FIGMA_BATCH = 8;
+
+async function runRenderJob(token: string, fileKey: string): Promise<void> {
+  try {
+    const file = await figmaFile(token, fileKey);
+    const version: string = file.version ?? "";
+    const targets = extractRenderTargets(file);
+    renderJob = { running: true, total: targets.length, done: 0, rendered: 0, failed: 0, startedAt: new Date().toISOString(), errors: [] };
+
+    for (let i = 0; i < targets.length; i += FIGMA_BATCH) {
+      const batch = targets.slice(i, i + FIGMA_BATCH);
+      let images: Record<string, string | null> = {};
+      try {
+        images = await figmaImages(token, fileKey, batch.map((t) => t.nodeId), { format: "png", scale: 2 });
+      } catch (err) {
+        for (const t of batch) {
+          renderJob.failed++;
+          renderJob.done++;
+          renderJob.errors.push({ name: t.name, nodeId: t.nodeId, error: (err as Error).message });
+        }
+        continue;
+      }
+      for (const t of batch) {
+        try {
+          const cached = await store.getImage(t.nodeId);
+          if (cached && cached.fileVersion === version) {
+            renderJob.rendered++;
+            renderJob.done++;
+            continue;
+          }
+          const src = images[t.nodeId];
+          if (!src) throw new Error("Figma returned no image");
+          const { data, mime } = await downloadImage(src);
+          await store.saveImage({
+            nodeId: t.nodeId,
+            fileKey,
+            fileVersion: version,
+            name: t.name,
+            group: t.group,
+            mime,
+            data,
+            fetchedAt: new Date().toISOString(),
+          });
+          renderJob.rendered++;
+        } catch (err) {
+          renderJob.failed++;
+          renderJob.errors.push({ name: t.name, nodeId: t.nodeId, error: (err as Error).message });
+        }
+        renderJob.done++;
+      }
+    }
+  } catch (err) {
+    renderJob.errors.push({ name: "(file)", nodeId: "", error: (err as Error).message });
+  } finally {
+    renderJob.running = false;
+    renderJob.finishedAt = new Date().toISOString();
+  }
+}
+
 // All tools are read-only: they read the design library, the components repo, and
 // specs. None modify state or external systems, so mark them accordingly so
 // ChatGPT/Codex apply the right confirmation behavior.
@@ -635,10 +710,15 @@ app.get("/api/figma/images", async (_req, res) => {
   res.json({ images: await store.listImages() });
 });
 
-// POST /api/figma/render — warm the curated component render cache (admin).
+// POST /api/figma/render — start a background warm-up of the component render cache (admin).
+// Returns immediately (202); poll GET /api/figma/render/status for progress.
 app.post("/api/figma/render", async (req, res) => {
   if (!isAdmin(req)) {
     res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  if (renderJob.running) {
+    res.status(202).json({ started: false, alreadyRunning: true, job: renderJob });
     return;
   }
   const { token, fileKey } = await effectiveFigma();
@@ -646,22 +726,15 @@ app.post("/api/figma/render", async (req, res) => {
     res.status(400).json({ error: "Figma not configured (token/file key)." });
     return;
   }
-  try {
-    const file = await figmaFile(token, fileKey);
-    const targets = extractRenderTargets(file);
-    const results: { nodeId: string; name: string; ok: boolean; error?: string }[] = [];
-    for (const t of targets) {
-      try {
-        const r = await renderAndCache(t.nodeId, t.name, t.group);
-        results.push({ nodeId: t.nodeId, name: t.name, ok: !("error" in r), error: "error" in r ? r.error : undefined });
-      } catch (err) {
-        results.push({ nodeId: t.nodeId, name: t.name, ok: false, error: (err as Error).message });
-      }
-    }
-    res.json({ count: targets.length, rendered: results.filter((r) => r.ok).length, results });
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
-  }
+  renderJob = { running: true, total: 0, done: 0, rendered: 0, failed: 0, startedAt: new Date().toISOString(), errors: [] };
+  // Fire and forget: do not await, so the HTTP request returns immediately.
+  void runRenderJob(token, fileKey);
+  res.status(202).json({ started: true, job: renderJob, statusUrl: "/api/figma/render/status" });
+});
+
+// GET /api/figma/render/status — progress of the warm-up job.
+app.get("/api/figma/render/status", (_req, res) => {
+  res.json(renderJob);
 });
 
 app.get("/api/figma/status", async (_req, res) => {
