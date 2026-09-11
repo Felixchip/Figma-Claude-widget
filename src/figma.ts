@@ -78,49 +78,22 @@ export type ComponentMeta = {
   description: string;
 };
 
-// Figma files contain a lot of non-design-system noise (deprecated sets, layout
-// frames, OS chrome, utility shapes). Filter it out so the component list and the
-// render pass only cover real components.
+// Denylist of non-component nodes in the Figma file. We KEEP everything else
+// (so new components aren't silently dropped) and only remove clear noise.
 export function isNoiseComponent(name: string): boolean {
   const n = name.trim();
   if (!n) return true;
   if (/\[deprecated\]/i.test(n)) return true;
-  if (/^[_]/.test(n)) return true;              // hidden
+  if (/^[_]/.test(n)) return true;              // hidden nodes
   if (/^[→←↑↓]/.test(n)) return true;           // annotation/pointer nodes
   if (/^Frame \d+/i.test(n)) return true;
   if (/^Component \d+/i.test(n)) return true;
   if (/^placeholder\b/i.test(n)) return true;
   if (/^(page|line|dot)$/i.test(n)) return true;
-  if (/^Status bar\b/i.test(n)) return true;
+  if (/^Status bar\b/i.test(n)) return true;    // iOS chrome
   if (/^Home Indicator\b/i.test(n)) return true;
-  if (/^Toolbar - Top\b/i.test(n)) return true;
-  if (/^CMC logo$/i.test(n)) return true;
   return false;
 }
-
-// Curated mapping of real GSA components to their Figma component-set names. Used
-// to decide what to render. Flags are handled specially (render each flag).
-export const CURATED_FIGMA_SETS = [
-  "Button",
-  "Change dynamic",
-  "Change percentage",
-  "Checkbox",
-  "Chip",
-  "Chip-small",
-  "Flags",
-  "Stock",
-  "ETF Instrument",
-  "Index Instrument",
-  "Instrument card",
-  "Radio button",
-  "GSA - iOS Segmented control/apple",
-  "Toolbar - Top - Sheet",
-  "Slider",
-  "Sparkline",
-  "Tab Bar - iPhone/True/False/5",
-  "Text fields",
-  "Toggle switch",
-];
 
 export type RenderTarget = {
   name: string;
@@ -129,9 +102,10 @@ export type RenderTarget = {
   kind: "set" | "variant" | "component";
 };
 
-// Pick which nodes to render. For each curated component:
-// - small sets (<= MAX_SET_VARIANTS) render as one set image (all variants together)
-// - large sets render up to MAX_VARIANTS_PER_SET representative variants
+// Pick which nodes to render. We keep EVERY non-noise component/set (denylist,
+// not allowlist) so new components aren't dropped:
+// - small sets (<= maxSetVariants) render as one set image (all variants together)
+// - large sets render up to maxVariantsPerSet representative variants
 // - Flags render every flag individually
 // Standalone components render as-is. Dedupes by node id.
 export function extractRenderTargets(
@@ -140,7 +114,6 @@ export function extractRenderTargets(
 ): RenderTarget[] {
   const maxSetVariants = opts.maxSetVariants ?? 40;
   const maxVariantsPerSet = opts.maxVariantsPerSet ?? 6;
-  const curated = new Set(CURATED_FIGMA_SETS);
   const docs = fileData.document?.children ?? [];
   const seen = new Set<string>();
   const targets: RenderTarget[] = [];
@@ -155,7 +128,7 @@ export function extractRenderTargets(
     if (!node || typeof node !== "object") return;
     const name: string = node.name ?? "";
     if (node.type === "COMPONENT_SET") {
-      if (curated.has(name) && !isNoiseComponent(name)) {
+      if (!isNoiseComponent(name)) {
         const kids: any[] = Array.isArray(node.children) ? node.children.filter((c: any) => c.type === "COMPONENT") : [];
         if (name === "Flags") {
           // Each flag is a variant; render them all.
@@ -169,7 +142,7 @@ export function extractRenderTargets(
       return;
     }
     if (node.type === "COMPONENT") {
-      if (curated.has(name) && !isNoiseComponent(name)) add(name, node.id, name, "component");
+      if (!isNoiseComponent(name)) add(name, node.id, name, "component");
       return;
     }
     const children = node.children ?? node.frames;
