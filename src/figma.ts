@@ -104,17 +104,26 @@ export type RenderTarget = {
 
 // Pick which nodes to render. We keep EVERY non-noise component/set (denylist,
 // not allowlist) so new components aren't dropped:
-// - small sets (<= maxSetVariants) render as one set image (all variants together)
-// - large sets render up to maxVariantsPerSet representative variants
-// - Flags render every flag individually
-// Standalone components render as-is. Dedupes by name (preferring sets) so
-// duplicate nodes across pages don't render repeatedly.
-export function extractRenderTargets(
-  fileData: any,
-  opts: { maxSetVariants?: number; maxVariantsPerSet?: number } = {}
-): RenderTarget[] {
-  const maxSetVariants = opts.maxSetVariants ?? 40;
-  const maxVariantsPerSet = opts.maxVariantsPerSet ?? 6;
+// - a component set renders ONE representative variant (a clean single example,
+//   not the whole variant grid); Flags render every flag individually
+// - standalone components render as-is
+// Dedupes by name (preferring sets) so duplicate nodes across pages don't render
+// repeatedly.
+function pickRepresentative(kids: any[]): any | undefined {
+  if (!kids.length) return undefined;
+  const score = (k: any): number => {
+    const n = String(k.name ?? "").toLowerCase();
+    let s = 0;
+    if (/(enabled|state|status)=(true|default|on|selected)/.test(n)) s += 100;
+    if (/(enabled|destructive)=(false|true)/.test(n)) s -= 50;
+    if (/size=(medium|md)/.test(n)) s += 10;
+    if (/size=(large|lg)/.test(n)) s += 5;
+    return s;
+  };
+  return [...kids].sort((a, b) => score(b) - score(a))[0];
+}
+
+export function extractRenderTargets(fileData: any): RenderTarget[] {
   const docs = fileData.document?.children ?? [];
 
   // Collect by name, preferring a component set over a standalone component.
@@ -149,12 +158,13 @@ export function extractRenderTargets(
     }
     if (entry.name === "Flags") {
       for (const k of entry.kids) targets.push({ name: k.name ?? "flag", nodeId: k.id, group: entry.name, kind: "variant" });
-    } else if (entry.kids.length <= maxSetVariants) {
-      targets.push({ name: entry.name, nodeId: entry.id, group: entry.name, kind: "set" });
+      continue;
+    }
+    const rep = pickRepresentative(entry.kids);
+    if (rep) {
+      targets.push({ name: entry.name, nodeId: rep.id, group: entry.name, kind: "variant" });
     } else {
-      for (const k of entry.kids.slice(0, maxVariantsPerSet)) {
-        targets.push({ name: `${entry.name} — ${k.name}`, nodeId: k.id, group: entry.name, kind: "variant" });
-      }
+      targets.push({ name: entry.name, nodeId: entry.id, group: entry.name, kind: "set" });
     }
   }
   return targets;

@@ -50,6 +50,7 @@ export interface SpecStore {
   getImage(nodeId: string): Promise<ComponentImage | undefined>;
   saveImage(img: ComponentImage): Promise<void>;
   listImages(): Promise<ComponentImageMeta[]>;
+  deleteImage(nodeId: string): Promise<void>;
   clearImages(): Promise<void>;
 }
 
@@ -280,6 +281,10 @@ class PostgresStore implements SpecStore {
     await this.pool.query("DELETE FROM component_images");
   }
 
+  async deleteImage(nodeId: string): Promise<void> {
+    await this.pool.query("DELETE FROM component_images WHERE node_id = $1", [nodeId]);
+  }
+
   async list(): Promise<SpecRow[]> {
     const res = await this.pool.query(
       "SELECT id, node_id, updated_at FROM specs ORDER BY updated_at DESC"
@@ -451,6 +456,10 @@ class MemoryStore implements SpecStore {
 
   async clearImages(): Promise<void> {
     this.images.clear();
+  }
+
+  async deleteImage(nodeId: string): Promise<void> {
+    this.images.delete(nodeId);
   }
 }
 

@@ -157,6 +157,17 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
     const targets = extractRenderTargets(file);
     renderJob = { running: true, total: targets.length, done: 0, rendered: 0, failed: 0, startedAt: new Date().toISOString(), errors: [] };
 
+    // Drop cached images that are no longer targets (e.g. after a render-strategy
+    // change or components removed from the file) so the cache stays clean.
+    const keep = new Set(targets.map((t) => t.nodeId));
+    try {
+      for (const img of await store.listImages()) {
+        if (!keep.has(img.nodeId)) await store.deleteImage(img.nodeId);
+      }
+    } catch (err) {
+      renderJob.errors.push({ name: "(prune)", nodeId: "", error: (err as Error).message });
+    }
+
     for (let i = 0; i < targets.length; i += FIGMA_BATCH) {
       const batch = targets.slice(i, i + FIGMA_BATCH);
       let images: Record<string, string | null> = {};
@@ -708,6 +719,16 @@ app.get("/api/figma/image/:nodeId", async (req, res) => {
 // GET /api/figma/images — list cached component renders.
 app.get("/api/figma/images", async (_req, res) => {
   res.json({ images: await store.listImages() });
+});
+
+// DELETE /api/figma/images — clear the component render cache (admin).
+app.delete("/api/figma/images", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  await store.clearImages();
+  res.json({ ok: true, cleared: true });
 });
 
 // POST /api/figma/render — start a background warm-up of the component render cache (admin).
