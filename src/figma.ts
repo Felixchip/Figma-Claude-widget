@@ -103,26 +103,12 @@ export type RenderTarget = {
 };
 
 // Pick which nodes to render. We keep EVERY non-noise component/set (denylist,
-// not allowlist) so new components aren't dropped:
-// - a component set renders ONE representative variant (a clean single example,
-//   not the whole variant grid); Flags render every flag individually
+// not allowlist) so nothing is dropped, and render EVERY variation:
+// - a component set expands to one image per variant (clean single examples,
+//   not a messy grid)
 // - standalone components render as-is
 // Dedupes by name (preferring sets) so duplicate nodes across pages don't render
 // repeatedly.
-function pickRepresentative(kids: any[]): any | undefined {
-  if (!kids.length) return undefined;
-  const score = (k: any): number => {
-    const n = String(k.name ?? "").toLowerCase();
-    let s = 0;
-    if (/(enabled|state|status)=(true|default|on|selected)/.test(n)) s += 100;
-    if (/(enabled|destructive)=(false|true)/.test(n)) s -= 50;
-    if (/size=(medium|md)/.test(n)) s += 10;
-    if (/size=(large|lg)/.test(n)) s += 5;
-    return s;
-  };
-  return [...kids].sort((a, b) => score(b) - score(a))[0];
-}
-
 export function extractRenderTargets(fileData: any): RenderTarget[] {
   const docs = fileData.document?.children ?? [];
 
@@ -156,15 +142,12 @@ export function extractRenderTargets(fileData: any): RenderTarget[] {
       targets.push({ name: entry.name, nodeId: entry.id, group: entry.name, kind: "component" });
       continue;
     }
-    if (entry.name === "Flags") {
-      for (const k of entry.kids) targets.push({ name: k.name ?? "flag", nodeId: k.id, group: entry.name, kind: "variant" });
+    if (!entry.kids.length) {
+      targets.push({ name: entry.name, nodeId: entry.id, group: entry.name, kind: "set" });
       continue;
     }
-    const rep = pickRepresentative(entry.kids);
-    if (rep) {
-      targets.push({ name: entry.name, nodeId: rep.id, group: entry.name, kind: "variant" });
-    } else {
-      targets.push({ name: entry.name, nodeId: entry.id, group: entry.name, kind: "set" });
+    for (const k of entry.kids) {
+      targets.push({ name: k.name ?? entry.name, nodeId: k.id, group: entry.name, kind: "variant" });
     }
   }
   return targets;

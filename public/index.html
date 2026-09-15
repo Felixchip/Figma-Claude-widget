@@ -1126,7 +1126,7 @@ function renderLibrary() {
     return;
   }
   const rows = libraryImages.filter(i => !q || i.name.toLowerCase().includes(q) || i.group.toLowerCase().includes(q));
-  count.textContent = `${rows.length} of ${libraryImages.length} components`;
+  count.textContent = `${rows.length} of ${libraryImages.length} images`;
   if (!rows.length) {
     grid.innerHTML = '<p style="color:var(--muted)">No components match your search.</p>';
     return;
@@ -1135,8 +1135,8 @@ function renderLibrary() {
     <div class="lib-item">
       <div class="lib-thumb"><img loading="lazy" alt="${esc(i.name)}" src="${mcpUrl}/api/figma/image/${encodeURIComponent(i.nodeId)}"></div>
       <div class="lib-meta">
-        <div class="lib-name" title="${esc(i.name)}">${esc(i.name)}</div>
-        <div class="lib-sub">${esc(i.group)} · ${fmtBytes(i.bytes)}</div>
+        <div class="lib-name" title="${esc(i.name)}">${esc(i.group)}</div>
+        <div class="lib-sub">${i.name !== i.group ? esc(i.name) + " · " : ""}${fmtBytes(i.bytes)}</div>
       </div>
     </div>`).join("");
 }
