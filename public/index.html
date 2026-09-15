@@ -95,6 +95,17 @@
   .codewindow .body { padding: 16px; overflow-x: auto; font-size: 13px; color: #E6E9F0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .lib-toolbar input[type="search"] { flex: 1; min-width: 200px; }
+  .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 16px; }
+  .lib-item { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+  .lib-item:hover { border-color: var(--outline3); box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
+  .lib-thumb { background: var(--fill1); display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 120px; }
+  .lib-thumb img { max-width: 100%; max-height: 140px; object-fit: contain; display: block; }
+  .lib-meta { padding: 10px 12px; border-top: 1px solid var(--border); }
+  .lib-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  #library .lib-grid { animation: panelIn .5s cubic-bezier(.22,.61,.36,1) both; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
   label.field-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
   input, textarea, select { width: 100%; background: var(--content1); border: 1px solid var(--outline2); border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; }
@@ -187,6 +198,7 @@
   </a>
   <nav>
     <a href="/" class="active" data-route="overview">Overview</a>
+    <a href="/library" data-route="library">Library</a>
     <a href="/settings" data-route="settings">Settings</a>
     <a href="/brainstorm" data-route="brainstorm">Brainstorm</a>
   </nav>
@@ -227,6 +239,24 @@ get_spec) to follow the mandatory rules, read the Figma design library and token
 pick components, and read product specs.
 Build the UI using ONLY the components in our design system. Stay on CMCMarkets brand.</code></pre>
     </div>
+  </section>
+
+  <section id="library" class="hidden">
+    <h2>Component library</h2>
+    <p>Rendered images of the components agents can use. Agents fetch these instantly, so they never re-render from Figma.</p>
+
+    <div class="card">
+      <div class="lib-toolbar">
+        <input id="lib-search" type="search" placeholder="Search components…" autocomplete="off">
+        <span id="lib-count" style="font-size:13px;color:var(--muted)"></span>
+        <button id="btn-render">Render / refresh</button>
+      </div>
+      <label style="margin-top:16px">Admin token <span style="color:var(--muted);font-weight:400">(needed to render)</span></label>
+      <input id="library-admin-token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off">
+      <p id="lib-status" style="font-size:13px;color:var(--muted);margin:8px 0 0"></p>
+    </div>
+
+    <div id="lib-grid" class="lib-grid"></div>
   </section>
 
   <section id="settings" class="hidden">
@@ -490,6 +520,7 @@ async function checkStatus() {
 // routing
 const ROUTES = {
   overview: { section: "overview", path: "/" },
+  library: { section: "library", path: "/library" },
   settings: { section: "settings", path: "/settings" },
   brainstorm: { section: "brainstorm", path: "/brainstorm" },
 };
@@ -516,6 +547,10 @@ function loadForRoute(route, subtab) {
     loadAliases();
     loadFoundationEditor();
   }
+  if (route.section === "library") {
+    restoreLibraryToken();
+    loadLibrary();
+  }
 }
 
 function navigate(path, push = true) {
@@ -526,6 +561,7 @@ function navigate(path, push = true) {
     ];
     return loadForRoute(ROUTES.settings, sub || "settings-home");
   }
+  if (path.startsWith("/library")) return loadForRoute(ROUTES.library, null);
   if (path.startsWith("/brainstorm")) return loadForRoute(ROUTES.brainstorm, null);
   return loadForRoute(ROUTES.overview, null);
 }
@@ -1040,6 +1076,117 @@ document.getElementById("btn-render-save").addEventListener("click", async () =>
     renderStatus.textContent = "Save failed: " + e.message;
   }
 });
+
+// ---- Library: rendered component images --------------------------------
+const LIB_TOKEN_KEY = "cmcLibraryToken";
+let libraryImages = [];
+
+function restoreLibraryToken() {
+  const el = document.getElementById("library-admin-token");
+  if (!el) return;
+  try {
+    const saved = localStorage.getItem(LIB_TOKEN_KEY);
+    if (saved && !el.value) el.value = saved;
+  } catch {}
+}
+
+function libraryAuthHeaders() {
+  const el = document.getElementById("library-admin-token");
+  const token = (el ? el.value : "").trim();
+  if (token) try { localStorage.setItem(LIB_TOKEN_KEY, token); } catch {}
+  return token ? { Authorization: "Bearer " + token } : {};
+}
+
+function fmtBytes(n) {
+  if (n === undefined || n === null) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return Math.round(n / 1024) + " KB";
+  return (n / 1024 / 1024).toFixed(1) + " MB";
+}
+
+async function loadLibrary() {
+  const grid = document.getElementById("lib-grid");
+  try {
+    const r = await fetch(mcpUrl + "/api/figma/images");
+    const d = await r.json();
+    libraryImages = d.images || [];
+    renderLibrary();
+  } catch (e) {
+    grid.innerHTML = '<p style="color:var(--red)">Could not load images: ' + esc(e.message) + "</p>";
+  }
+}
+
+function renderLibrary() {
+  const grid = document.getElementById("lib-grid");
+  const count = document.getElementById("lib-count");
+  const q = (document.getElementById("lib-search").value || "").trim().toLowerCase();
+  if (!libraryImages.length) {
+    count.textContent = "";
+    grid.innerHTML = '<p style="color:var(--muted)">No images rendered yet. Add your admin token and click <b>Render / refresh</b>.</p>';
+    return;
+  }
+  const rows = libraryImages.filter(i => !q || i.name.toLowerCase().includes(q) || i.group.toLowerCase().includes(q));
+  count.textContent = `${rows.length} of ${libraryImages.length} components`;
+  if (!rows.length) {
+    grid.innerHTML = '<p style="color:var(--muted)">No components match your search.</p>';
+    return;
+  }
+  grid.innerHTML = rows.map(i => `
+    <div class="lib-item">
+      <div class="lib-thumb"><img loading="lazy" alt="${esc(i.name)}" src="${mcpUrl}/api/figma/image/${encodeURIComponent(i.nodeId)}"></div>
+      <div class="lib-meta">
+        <div class="lib-name" title="${esc(i.name)}">${esc(i.name)}</div>
+        <div class="lib-sub">${esc(i.group)} · ${fmtBytes(i.bytes)}</div>
+      </div>
+    </div>`).join("");
+}
+
+document.getElementById("lib-search").addEventListener("input", renderLibrary);
+
+document.getElementById("btn-render").addEventListener("click", async () => {
+  const status = document.getElementById("lib-status");
+  const btn = document.getElementById("btn-render");
+  const headers = libraryAuthHeaders();
+  if (!headers.Authorization) {
+    status.style.color = "var(--red)";
+    status.textContent = "Enter your admin token first.";
+    return;
+  }
+  btn.disabled = true;
+  status.style.color = "var(--muted)";
+  status.textContent = "Starting render…";
+  try {
+    const r = await fetch(mcpUrl + "/api/figma/render", { method: "POST", headers });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+    pollRender();
+  } catch (e) {
+    status.style.color = "var(--red)";
+    status.textContent = "Error: " + e.message;
+    btn.disabled = false;
+  }
+});
+
+async function pollRender() {
+  const status = document.getElementById("lib-status");
+  const btn = document.getElementById("btn-render");
+  try {
+    const r = await fetch(mcpUrl + "/api/figma/render/status");
+    const j = await r.json();
+    if (j.running) {
+      status.textContent = `Rendering… ${j.done}/${j.total || "…"} (${j.rendered} ok, ${j.failed} failed)`;
+      setTimeout(pollRender, 2000);
+      return;
+    }
+    status.style.color = j.failed ? "var(--red)" : "var(--green)";
+    status.textContent = `Done. ${j.rendered} rendered, ${j.failed} failed.`;
+    btn.disabled = false;
+    loadLibrary();
+  } catch (e) {
+    status.textContent = "Lost connection while rendering.";
+    btn.disabled = false;
+  }
+}
 
 // route on load (support real URLs /settings/foundation etc.) — run last so all
 // helpers/consts are initialized.
