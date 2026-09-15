@@ -49,15 +49,28 @@ export async function exchangeFigmaCode(cfg: FigmaOAuthConfig, code: string): Pr
   return data.access_token as string;
 }
 
-async function figmaFetch(token: string, path: string): Promise<any> {
-  const res = await fetch(`${FIGMA_API}${path}`, {
-    headers: { "X-Figma-Token": token },
-  });
-  if (!res.ok) {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function figmaFetch(token: string, path: string, retries = 4): Promise<any> {
+  let attempt = 0;
+  for (;;) {
+    const res = await fetch(`${FIGMA_API}${path}`, {
+      headers: { "X-Figma-Token": token },
+    });
+    if (res.ok) return res.json();
     const body = await res.text();
+    const retriable = res.status === 429 || res.status >= 500;
+    if (retriable && attempt < retries) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      const wait = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(60000, retryAfter * 1000)
+        : Math.min(30000, 1500 * 2 ** attempt);
+      await sleep(wait);
+      attempt++;
+      continue;
+    }
     throw new Error(`Figma API ${res.status}: ${body.slice(0, 300)}`);
   }
-  return res.json();
 }
 
 export async function figmaMe(token: string) {

@@ -198,8 +198,17 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
       renderJob.errors.push({ name: "(prune)", nodeId: "", error: (err as Error).message });
     }
 
-    for (let i = 0; i < targets.length; i += FIGMA_BATCH) {
-      const batch = targets.slice(i, i + FIGMA_BATCH);
+    // Work out what actually needs rendering up front (single list query), so we
+    // never call the Figma Images API for nodes we already have. This is what
+    // keeps re-warms cheap and avoids rate limits.
+    const cached = new Map((await store.listImages()).map((i) => [i.nodeId, i.fileVersion]));
+    const pending = targets.filter((t) => cached.get(t.nodeId) !== version);
+    const alreadyCached = targets.length - pending.length;
+    renderJob.rendered += alreadyCached;
+    renderJob.done += alreadyCached;
+
+    for (let i = 0; i < pending.length; i += FIGMA_BATCH) {
+      const batch = pending.slice(i, i + FIGMA_BATCH);
       let images: Record<string, string | null> = {};
       try {
         images = await figmaImages(token, fileKey, batch.map((t) => t.nodeId), { format: "png", scale: 2 });
@@ -213,12 +222,6 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
       }
       for (const t of batch) {
         try {
-          const cached = await store.getImage(t.nodeId);
-          if (cached && cached.fileVersion === version) {
-            renderJob.rendered++;
-            renderJob.done++;
-            continue;
-          }
           const src = images[t.nodeId];
           if (!src) throw new Error("Figma returned no image");
           const { data, mime } = await downloadImage(src);
@@ -239,6 +242,8 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
         }
         renderJob.done++;
       }
+      // Be gentle with Figma's Images API to stay under the rate limit.
+      await new Promise((r) => setTimeout(r, 700));
     }
   } catch (err) {
     renderJob.errors.push({ name: "(file)", nodeId: "", error: (err as Error).message });
