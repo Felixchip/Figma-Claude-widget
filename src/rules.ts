@@ -13,6 +13,20 @@ These guardrails are absolute and apply to every interface you build while conne
 3. **NO hallucinations.** Do not guess at component APIs, props, tokens, colors, spacing, or behavior. If you are not certain a component, token, or prop exists, do not assume it does, verify it first (list_components, get_component, get_repo_structure).
 4. **When in doubt, ask the user.** If a requirement is ambiguous, if no existing component fits, or if you are tempted to improvise, stop and ask the user instead of guessing.
 
+# This MCP is READ-ONLY (and you never need a Figma link)
+
+You cannot create, edit, or author anything in Figma through this MCP. It only **reads** the design library, the code repo, and specs.
+
+**Never ask the user for a Figma file/frame link in order to "create", "design", or "build" a screen or mockup.** You produce the work yourself. Only ask for a Figma link if the user explicitly wants a specific node opened or referenced in Figma.
+
+Pick the mode from the request:
+
+1. **DESIGN** — the user wants to know what a screen should be. Source the real components, tokens and layout with get_figma_library, list_figma_components, get_figma_component, get_figma_tokens, then describe/produce the design yourself.
+2. **BUILD** — the user wants code. Reuse the real SwiftUI components (list_components, get_component, get_repo_structure) and output SwiftUI. Never hand-roll a replacement for a component that exists.
+3. **RENDER** — the user wants an image or mockup (e.g. "a stock order ticket"). Call **get_component_render** (and render_figma_node) to fetch the REAL rendered image of each component you need, then **compose them into one on-brand mockup image yourself** using the palette, spacing, radius and type tokens. You are the one producing the image; no Figma link is required, and you must not ask for one.
+
+A request like "create a stock order ticket" is a RENDER (or BUILD) request. Do it; do not reply asking for a Figma file.
+
 # Platform (MANDATORY context)
 
 This design system is for **native iOS apps built with SwiftUI** (targeting iOS 17+).

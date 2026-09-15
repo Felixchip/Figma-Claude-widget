@@ -275,14 +275,17 @@ function createMcpServer(): McpServer {
         "Output SwiftUI and stay on the CMCMarkets design language using the real components and tokens. " +
         "Design with sense, do not stack components mechanically: establish hierarchy (one primary action per screen), " +
         "space with the token scale, group related elements, and align deliberately (see the rules doc). " +
+        "This MCP is READ-ONLY: you cannot create or edit anything in Figma. NEVER ask the user for a Figma file link " +
+        "in order to 'create', 'design' or 'build' a screen or mockup, you produce the work yourself. " +
         "This MCP gives you three routes:\n" +
         "- DESIGN: when asked to design an interface or produce UI, DEFAULT to the Figma library, use " +
         "get_figma_library, list_figma_components, get_figma_component, get_figma_tokens to source components, " +
         "tokens, and layout from Figma.\n" +
         "- BUILD: when asked to write code or build, DEFAULT to the components repo, use list_components, " +
         "get_component, get_repo_structure to reuse the real SwiftUI code components.\n" +
-        "- RENDER: when asked to produce an IMAGE/mockup of a screen (e.g. an order ticket), compose it from these " +
-        "components using the GSA tokens below. Read the full Render Guide in the rules doc (list_rules / design://rules) " +
+        "- RENDER: when asked to produce an IMAGE/mockup of a screen (e.g. an order ticket), fetch the REAL rendered " +
+        "image of each component you need with get_component_render (or render_figma_node), then compose them into one " +
+        "on-brand mockup image yourself. Read the full Render Guide in the rules doc (list_rules / design://rules) " +
         "for per-component anatomy, but render on-brand with these essentials:\n" +
         "  Palette: brand blue #325FFF (primary, pressed #002DCC, tint #E5EBFF); text near-black #000000 / secondary " +
         "#59627C / muted #A0AAAB; gain #178C43, loss #E3171A; white surfaces on #F7F7F7; hairline #D6DBDB; neutral grays " +
@@ -300,7 +303,8 @@ function createMcpServer(): McpServer {
         "4. If rendering an image: read the Render Guide (in list_rules) and compose with the palette/style above.\n" +
         "5. Plan the UI using ONLY components and tokens that exist in our system.\n" +
         "6. If a needed component does not exist, STOP and ask the user, do not invent one.\n" +
-        "7. Output: (a) a component map, (b) the screens/flows, (c) anything the user must provide, (d) implementation steps.",
+        "7. Output by mode: DESIGN -> a component map + the screens/flows; BUILD -> SwiftUI composed from real components; " +
+        "RENDER -> the actual mockup image. Do not ask for a Figma link to produce any of these.",
     }
   );
 
