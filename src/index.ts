@@ -25,12 +25,15 @@ import {
   figmaAuthUrl,
   figmaMe,
   figmaFile,
+  figmaFileMeta,
   figmaOAuthConfig,
   fileKeyFromUrl,
   figmaEnvToken,
   figmaEnvFileKey,
   extractComponentStats,
   extractRenderTargets,
+  resolveTarget,
+  type RenderTarget,
   figmaImages,
   downloadImage,
 } from "./figma.js";
@@ -106,15 +109,36 @@ async function effectiveFigma(): Promise<{ token?: string; fileKey?: string }> {
 type RenderedImage = { mime: string; base64: string; url: string } | { error: string };
 
 // Render a Figma node to a PNG and cache it (keyed by node id + file version).
+// Cached reads only need a cheap depth=1 version check, never the whole file.
 async function renderAndCache(nodeId: string, name: string, group: string): Promise<RenderedImage> {
   const { token, fileKey } = await effectiveFigma();
-  if (!token || !fileKey) return { error: "Figma is not configured (token/file key)." };
-  const file = await figmaFile(token, fileKey);
-  const version: string = file.version ?? "";
   const cached = await store.getImage(nodeId);
-  if (cached && cached.fileVersion === version) {
-    return { mime: cached.mime, base64: cached.data.toString("base64"), url: `/api/figma/image/${encodeURIComponent(nodeId)}` };
+  const asResult = (img: NonNullable<typeof cached>): RenderedImage => ({
+    mime: img.mime,
+    base64: img.data.toString("base64"),
+    url: `/api/figma/image/${encodeURIComponent(nodeId)}`,
+  });
+
+  if (!token || !fileKey) {
+    if (cached) return asResult(cached);
+    return { error: "Figma is not configured (token/file key)." };
   }
+
+  let version = "";
+  if (cached) {
+    try {
+      const meta = await figmaFileMeta(token, fileKey);
+      version = meta.version ?? "";
+      if (version === cached.fileVersion) return asResult(cached);
+    } catch {
+      // Version check failed (rate limit / network): serve the cached copy.
+      return asResult(cached);
+    }
+  } else {
+    const meta = await figmaFileMeta(token, fileKey);
+    version = meta.version ?? "";
+  }
+
   const images = await figmaImages(token, fileKey, [nodeId], { format: "png", scale: 2 });
   const src = images[nodeId];
   if (!src) return { error: `Figma returned no image for node ${nodeId}.` };
@@ -156,6 +180,12 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
     const version: string = file.version ?? "";
     const targets = extractRenderTargets(file);
     renderJob = { running: true, total: targets.length, done: 0, rendered: 0, failed: 0, startedAt: new Date().toISOString(), errors: [] };
+    // Persist the name -> node map so MCP lookups don't need the whole file.
+    try {
+      await store.saveTargets(targets, version);
+    } catch (err) {
+      renderJob.errors.push({ name: "(targets)", nodeId: "", error: (err as Error).message });
+    }
 
     // Drop cached images that are no longer targets (e.g. after a render-strategy
     // change or components removed from the file) so the cache stays clean.
@@ -504,21 +534,21 @@ function createMcpServer(): McpServer {
       title: "Get a rendered component image",
       description:
         "Get a real rendered image of a design-system component by name (e.g. 'Button', 'Toggle switch', 'Checkbox'). " +
-        "Use this for visual reference when generating an on-brand mockup image. Cached after the first render.",
-      inputSchema: { query: z.string().describe("Component name (exact or partial).") },
+        "To target a specific variation use 'Component / Variant', e.g. 'Button / Enabled=false' or 'Chip / Size=Small'. " +
+        "Use this for visual reference when generating an on-brand mockup image. Served from cache.",
+      inputSchema: { query: z.string().describe("Component name, optionally 'Component / Variant'.") },
       annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ query }) => {
       try {
-        const { token, fileKey } = await effectiveFigma();
-        if (!token || !fileKey) return { content: [{ type: "text" as const, text: "Figma is not configured." }], isError: true };
-        const file = await figmaFile(token, fileKey);
-        const targets = extractRenderTargets(file);
-        const q = query.toLowerCase();
-        const t =
-          targets.find((x) => x.name.toLowerCase() === q) ||
-          targets.find((x) => x.name.toLowerCase().includes(q)) ||
-          targets.find((x) => x.group.toLowerCase().includes(q));
+        let targets = (await store.getTargets())?.targets ?? [];
+        if (!targets.length) {
+          const { token, fileKey } = await effectiveFigma();
+          if (!token || !fileKey) return { content: [{ type: "text" as const, text: "Figma is not configured." }], isError: true };
+          const file = await figmaFile(token, fileKey);
+          targets = extractRenderTargets(file);
+        }
+        const t = resolveTarget(targets, query);
         if (!t) {
           const names = [...new Set(targets.map((x) => x.group || x.name))].slice(0, 40).join(", ");
           return { content: [{ type: "text" as const, text: `No component matching '${query}'. Available: ${names}` }], isError: true };

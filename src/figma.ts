@@ -68,6 +68,12 @@ export async function figmaFile(token: string, fileKey: string) {
   return figmaFetch(token, `/v1/files/${encodeURIComponent(fileKey)}`);
 }
 
+// Lightweight metadata only (depth=1): name, version, lastModified. Much cheaper
+// than fetching the whole document, so use it for staleness checks.
+export async function figmaFileMeta(token: string, fileKey: string): Promise<{ name?: string; version?: string; lastModified?: string }> {
+  return figmaFetch(token, `/v1/files/${encodeURIComponent(fileKey)}?depth=1`);
+}
+
 export async function figmaFileVariables(token: string, fileKey: string) {
   return figmaFetch(token, `/v1/files/${encodeURIComponent(fileKey)}/variables/local`);
 }
@@ -201,6 +207,36 @@ export function extractComponents(fileData: any): ComponentMeta[] {
   }
   for (const c of docs) walk(c);
   return out;
+}
+
+// Resolve a human query to a render target. Supports:
+//   "Button"                 -> a representative Button variant
+//   "Button / Enabled=false" -> that specific variant
+//   "Button:Enabled=false"   -> same
+export function resolveTarget(targets: RenderTarget[], query: string): RenderTarget | undefined {
+  const raw = query.trim().toLowerCase();
+  if (!raw) return undefined;
+  const representative = (list: RenderTarget[]) =>
+    list.find((t) => /(enabled|state|status)=(true|default|on|selected)/.test(t.name.toLowerCase())) || list[0];
+
+  const [gRaw, vRaw] = raw.split(/\s*[/:]\s*/);
+  if (vRaw) {
+    const groupExact = targets.filter((t) => t.group.toLowerCase() === gRaw);
+    const scope = groupExact.length ? groupExact : targets.filter((t) => t.group.toLowerCase().includes(gRaw));
+    const pool = scope.length ? scope : targets;
+    return (
+      pool.find((t) => t.name.toLowerCase() === vRaw) ||
+      pool.find((t) => t.name.toLowerCase().includes(vRaw)) ||
+      pool.find((t) => t.name.toLowerCase().replace(/\s/g, "").includes(vRaw.replace(/\s/g, "")))
+    );
+  }
+  const exactName = targets.find((t) => t.name.toLowerCase() === raw);
+  if (exactName) return exactName;
+  const groupExact = targets.filter((t) => t.group.toLowerCase() === raw);
+  if (groupExact.length) return representative(groupExact);
+  const groupContains = targets.filter((t) => t.group.toLowerCase().includes(raw));
+  if (groupContains.length) return representative(groupContains);
+  return targets.find((t) => t.name.toLowerCase().includes(raw));
 }
 
 export type ComponentStats = {

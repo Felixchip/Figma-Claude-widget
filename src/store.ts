@@ -1,4 +1,5 @@
 import pg from "pg";
+import type { RenderTarget } from "./figma.js";
 
 const { Pool } = pg;
 
@@ -52,6 +53,8 @@ export interface SpecStore {
   listImages(): Promise<ComponentImageMeta[]>;
   deleteImage(nodeId: string): Promise<void>;
   clearImages(): Promise<void>;
+  saveTargets(targets: RenderTarget[], fileVersion: string): Promise<void>;
+  getTargets(): Promise<{ targets: RenderTarget[]; fileVersion: string } | undefined>;
 }
 
 export type ComponentImage = {
@@ -285,6 +288,22 @@ class PostgresStore implements SpecStore {
     await this.pool.query("DELETE FROM component_images WHERE node_id = $1", [nodeId]);
   }
 
+  async saveTargets(targets: RenderTarget[], fileVersion: string): Promise<void> {
+    await this.setSetting("render_targets", JSON.stringify({ fileVersion, targets }));
+  }
+
+  async getTargets(): Promise<{ targets: RenderTarget[]; fileVersion: string } | undefined> {
+    const raw = await this.getSetting("render_targets");
+    if (!raw) return undefined;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed?.targets)) return parsed;
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   async list(): Promise<SpecRow[]> {
     const res = await this.pool.query(
       "SELECT id, node_id, updated_at FROM specs ORDER BY updated_at DESC"
@@ -329,6 +348,7 @@ class MemoryStore implements SpecStore {
   private specs = new Map<string, Spec>();
   private settings = new Map<string, string>();
   private images = new Map<string, ComponentImage>();
+  private targets?: { targets: RenderTarget[]; fileVersion: string };
   readonly kind = "memory" as const;
   ready = true;
 
@@ -460,6 +480,14 @@ class MemoryStore implements SpecStore {
 
   async deleteImage(nodeId: string): Promise<void> {
     this.images.delete(nodeId);
+  }
+
+  async saveTargets(targets: RenderTarget[], fileVersion: string): Promise<void> {
+    this.targets = { targets, fileVersion };
+  }
+
+  async getTargets(): Promise<{ targets: RenderTarget[]; fileVersion: string } | undefined> {
+    return this.targets;
   }
 }
 
