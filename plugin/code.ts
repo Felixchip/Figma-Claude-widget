@@ -15,6 +15,7 @@ const EXPORT_SCALE = 2;
 type Target = { node: ComponentNode; name: string; group: string };
 
 let collections: VariableCollection[] = [];
+let allCollections: VariableCollection[] = [];
 let pendingAck: (() => void) | null = null;
 let cancelled = false;
 
@@ -71,22 +72,20 @@ async function collectTargets(): Promise<Target[]> {
   return targets;
 }
 
-async function loadCollections(): Promise<VariableCollection[]> {
-  const all = await figma.variables.getLocalVariableCollectionsAsync();
-  return all.filter((c) => (c.modes ?? []).length >= 2);
-}
-
 async function fileInfo() {
-  collections = await loadCollections();
+  allCollections = await figma.variables.getLocalVariableCollectionsAsync();
+  collections = allCollections.filter((c) => (c.modes ?? []).length >= 2);
   const targets = await collectTargets();
   return {
     fileName: figma.root.name,
     fileKey: (figma.fileKey as string) || "",
     variantCount: targets.length,
-    collections: collections.map((c) => ({
+    usableCount: collections.length,
+    collections: allCollections.map((c) => ({
       id: c.id,
       name: c.name,
-      modes: c.modes.map((m) => ({ modeId: m.modeId, name: m.name })),
+      remote: !!c.remote,
+      modes: (c.modes ?? []).map((m) => ({ modeId: m.modeId, name: m.name })),
     })),
   };
 }
@@ -128,8 +127,9 @@ async function runExport(opts: {
   collectionId: string;
   modeIds: string[];
 }) {
-  const collection = collections.find((c) => c.id === opts.collectionId);
-  if (!collection) throw new Error("Theme collection not found. Run Detect again.");
+  const collection = allCollections.find((c) => c.id === opts.collectionId) || collections.find((c) => c.id === opts.collectionId);
+  if (!collection) throw new Error("Theme collection not found. Click Detect and pick one.");
+  const modes = collection.modes ?? [];
 
   const targets = await collectTargets();
   const info = await fileInfo();
@@ -137,7 +137,7 @@ async function runExport(opts: {
 
   let total = 0;
   for (const modeId of opts.modeIds) {
-    const mode = collection.modes.find((m) => m.modeId === modeId);
+    const mode = modes.find((m) => m.modeId === modeId);
     const themeName = mode ? mode.name : modeId;
     let done = 0;
     let batch: Record<string, unknown>[] = [];

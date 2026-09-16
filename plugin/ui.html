@@ -77,17 +77,31 @@
     var modesEl = document.getElementById('modes');
     if (!info) return;
     document.getElementById('setup').classList.remove('hidden');
+    if (!info.collections.length) {
+      sel.innerHTML = '<option value="">no variable collections found</option>';
+      modesEl.innerHTML = '';
+      document.getElementById('meta').innerHTML = '<b>' + info.fileName + '</b><br>' +
+        info.variantCount + ' variants. No local variable collections in this file — the theme modes may live in a separate library file.';
+      log('No local variable collections found.');
+      return;
+    }
     sel.innerHTML = info.collections.map(function (c) {
-      return '<option value="' + c.id + '">' + c.name + ' (' + c.modes.length + ' modes)</option>';
+      var tag = c.modes.length + ' mode' + (c.modes.length === 1 ? '' : 's') + (c.modes.length < 2 ? ' — not usable' : '');
+      return '<option value="' + c.id + '">' + c.name + ' (' + tag + ')</option>';
     }).join('');
     var preferred = info.collections.find(function (c) {
       return c.modes.some(function (m) { return /^light$/i.test(m.name); }) &&
              c.modes.some(function (m) { return /^dark$/i.test(m.name); });
-    });
+    }) || info.collections.find(function (c) { return c.modes.length >= 2; });
     if (preferred) sel.value = preferred.id;
     renderModes();
+    log('Collections found:');
+    info.collections.forEach(function (c) {
+      log('  · ' + c.name + ' → ' + c.modes.map(function (m) { return m.name; }).join(', '));
+    });
     document.getElementById('meta').innerHTML =
-      '<b>' + info.fileName + '</b><br>' + info.variantCount + ' variants across all components';
+      '<b>' + info.fileName + '</b><br>' + info.variantCount + ' variants · ' +
+      info.usableCount + ' theme collection(s)';
   }
 
   function currentCollection() {
@@ -99,6 +113,10 @@
     var c = currentCollection();
     var el = document.getElementById('modes');
     if (!c) { el.innerHTML = ''; return; }
+    if (c.modes.length < 2) {
+      el.innerHTML = '<span style="color:var(--figma-color-text-secondary)">This collection has only one mode — pick another, or add a Light/Dark mode in Figma.</span>';
+      return;
+    }
     el.innerHTML = c.modes.map(function (m) {
       var checked = /^light$|^dark$/i.test(m.name) ? ' checked' : '';
       return '<label><input type="checkbox" value="' + m.modeId + '"' + checked + '> ' + m.name + '</label>';
@@ -135,7 +153,6 @@
 
     if (msg.type === 'detected') {
       info = msg.info;
-      log('Found ' + info.variantCount + ' variants and ' + info.collections.length + ' theme collection(s).');
       renderCollections();
       return;
     }
