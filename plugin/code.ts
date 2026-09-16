@@ -37,23 +37,35 @@ function isNoiseComponent(name: string): boolean {
   return false;
 }
 
-// Mirror of the server's extractRenderTargets: keep every non-noise component,
-// expand each set into one entry per variant, dedupe by name preferring sets.
+// Mirror of the server's extractRenderTargets exactly: walk the page tree (do not
+// descend into components), keep every non-noise component, expand each set into
+// one entry per variant, and dedupe by name preferring sets. Using
+// findAllWithCriteria here would also return variants and nested components.
 async function collectTargets(): Promise<Target[]> {
   await figma.loadAllPagesAsync();
-  const found = figma.root.findAllWithCriteria({ types: ["COMPONENT_SET", "COMPONENT"] });
 
-  const byName = new Map<string, { name: string; type: "SET" | "COMPONENT"; node: ComponentSetNode | ComponentNode }>();
-  for (const node of found) {
+  const byName = new Map<string, { name: string; type: "SET" | "COMPONENT"; node: ComponentSetNode | ComponentNode; kids: ComponentNode[] }>();
+
+  function record(node: ComponentSetNode | ComponentNode) {
     const name = node.name;
-    if (isNoiseComponent(name)) continue;
+    if (isNoiseComponent(name)) return;
     const key = name.trim().toLowerCase();
     if (node.type === "COMPONENT_SET") {
-      byName.set(key, { name, type: "SET", node });
+      const kids = node.children.filter((c) => c.type === "COMPONENT") as ComponentNode[];
+      byName.set(key, { name, type: "SET", node, kids });
     } else if (!byName.has(key)) {
-      byName.set(key, { name, type: "COMPONENT", node });
+      byName.set(key, { name, type: "COMPONENT", node, kids: [] });
     }
   }
+
+  function walk(node: BaseNode) {
+    if (node.type === "COMPONENT_SET") return record(node as ComponentSetNode);
+    if (node.type === "COMPONENT") return record(node as ComponentNode);
+    const children = (node as ChildrenMixin).children;
+    if (Array.isArray(children)) for (const c of children) walk(c);
+  }
+
+  for (const page of figma.root.children) walk(page);
 
   const targets: Target[] = [];
   for (const entry of byName.values()) {
@@ -61,12 +73,11 @@ async function collectTargets(): Promise<Target[]> {
       targets.push({ node: entry.node as ComponentNode, name: entry.name, group: entry.name });
       continue;
     }
-    const kids = (entry.node as ComponentSetNode).children.filter((c) => c.type === "COMPONENT") as ComponentNode[];
-    if (!kids.length) {
+    if (!entry.kids.length) {
       targets.push({ node: entry.node as unknown as ComponentNode, name: entry.name, group: entry.name });
       continue;
     }
-    for (const k of kids) targets.push({ node: k, name: k.name, group: entry.name });
+    for (const k of entry.kids) targets.push({ node: k, name: k.name, group: entry.name });
   }
   return targets;
 }

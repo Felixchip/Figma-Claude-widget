@@ -792,8 +792,15 @@ app.post("/api/figma/upload", async (req, res) => {
     return;
   }
   const theme: string = typeof body.theme === "string" ? body.theme : "";
-  const { fileKey } = await effectiveFigma();
-  const fileVersion: string = body.fileVersion ?? "";
+  const { token, fileKey } = await effectiveFigma();
+  let fileVersion: string = body.fileVersion ?? "";
+  if (!fileVersion && token && fileKey) {
+    try {
+      fileVersion = (await figmaFileMeta(token, fileKey)).version ?? "";
+    } catch {
+      fileVersion = "";
+    }
+  }
   let saved = 0;
   const errors: { nodeId: string; error: string }[] = [];
   for (const im of images) {
@@ -820,9 +827,23 @@ app.post("/api/figma/upload", async (req, res) => {
 });
 
 // DELETE /api/figma/images — clear the component render cache (admin).
+// ?theme=Light clears only that theme; ?theme= (empty) clears the default renders.
 app.delete("/api/figma/images", async (req, res) => {
   if (!isAdmin(req)) {
     res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  if (typeof req.query.theme === "string") {
+    const theme = req.query.theme;
+    const all = await store.listImages();
+    let removed = 0;
+    for (const img of all) {
+      if ((img.theme || "") === theme) {
+        await store.deleteImage(img.nodeId, theme);
+        removed++;
+      }
+    }
+    res.json({ ok: true, theme, removed });
     return;
   }
   await store.clearImages();
