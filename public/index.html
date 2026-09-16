@@ -420,7 +420,7 @@ const serverUrl = mcpUrl + "/mcp";
 const AGENTS = {
   "chatgpt-codex": {
     label: "ChatGPT / Codex",
-    hint: "ChatGPT desktop: Settings → MCP servers → Add server → choose Streamable HTTP, paste the URL, then Restart. Codex CLI: run the command, or add the TOML to ~/.codex/config.toml. Add Figma's MCP too if you want designs created inside Figma.",
+    hint: "ChatGPT: Settings → Plugins → MCP Servers → Add server → Streamable HTTP, paste the URL. (If it's not there, turn on Developer mode under Settings → Security and login.) On the web, add it at chatgpt.com/plugins. Codex CLI: run the command, or add the TOML to ~/.codex/config.toml.",
     code: `codex mcp add gsa-build-kit --url "${serverUrl}"
 
 # ~/.codex/config.toml (ChatGPT desktop, Codex CLI and IDE share this):

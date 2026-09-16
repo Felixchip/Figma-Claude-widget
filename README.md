@@ -135,8 +135,10 @@ The `gsa-build-kit` MCP is a **stateless** Streamable HTTP server at
 `https://<your-app>.up.railway.app/mcp` and works as an open connector (no per-user
 login). All tools are read-only.
 
-1. **ChatGPT desktop app**: Settings → **MCP servers** → **Add server** → name it,
-   choose **Streamable HTTP**, paste the URL, **Save**, then **Restart**.
+1. **ChatGPT app**: Settings → **Plugins** → **MCP Servers** → **Add server** →
+   **Streamable HTTP**, paste the URL. If the option isn't visible, turn on
+   **Developer mode** under Settings → **Security and login**. On the web, add it
+   at [chatgpt.com/plugins](https://chatgpt.com/plugins) (plus button → MCP server URL).
 2. **Codex CLI**: `codex mcp add gsa-build-kit --url https://<your-app>.up.railway.app/mcp`
 3. **Codex config file** (`~/.codex/config.toml`, shared by the desktop app, CLI and
    IDE extension):
