@@ -158,6 +158,40 @@ npm run build   # outputs dist/code.js
 
 In Figma: **Menu → Widgets → Development → Import widget from manifest** and pick `widget/manifest.json`. Set the **MCP Server URL** field to `https://<your-app>.up.railway.app`.
 
+## Figma export plugin (themed renders)
+
+Figma's REST image API can only render one variable mode, so the server-side render
+produced whatever mode the file defaults to. The plugin runs inside Figma, where the
+mode **can** be set, so it exports every component variant once per theme.
+
+```sh
+cd plugin
+npm install
+npm run build   # outputs dist/code.js
+```
+
+In Figma: **Menu → Plugins → Development → Import plugin from manifest** and pick
+`plugin/manifest.json`. Then run **Plugins → Development → GSA Build Kit Export**:
+
+1. Enter the server URL and your `ADMIN_TOKEN`.
+2. Pick the theme collection (auto-selected if a collection has Light + Dark modes).
+3. Tick the themes to export and click **Export & upload**.
+
+It walks the file, sets each theme's mode, exports every variant to PNG at 2×, and
+POSTs batches to `POST /api/figma/upload`. The Library page then shows both themes
+(with a theme filter), and agents can request a theme:
+
+```
+get_component_render("Text fields", theme: "Light")
+```
+
+Notes:
+
+- A plugin cannot run headless, so re-run it whenever the library changes.
+- Uploaded themes are stored alongside the default render (keyed by node id + theme)
+  and are never pruned by the server-side warm-up.
+- Server-rendered images use theme `""` (shown as **Default** in the Library).
+
 ## REST API (for the widget and playground)
 
 | Endpoint | Purpose |
@@ -166,6 +200,12 @@ In Figma: **Menu → Widgets → Development → Import widget from manifest** a
 | `GET /api/specs` | List specs |
 | `GET /api/specs/:id` | Get one spec |
 | `POST /api/tools/:name` | Call any MCP tool (used by the web playground) |
+| `POST /api/figma/render` | Start the background render warm-up (admin) |
+| `GET /api/figma/render/status` | Warm-up progress |
+| `GET /api/figma/images` | List cached component renders |
+| `GET /api/figma/image/:nodeId` | Serve a render (`?theme=Light` optional) |
+| `POST /api/figma/upload` | Plugin uploads themed renders (admin) |
+| `DELETE /api/figma/images` | Clear the render cache (admin) |
 | `GET /api/status` | Server + repo status |
 | `GET /health` | Health check |
 

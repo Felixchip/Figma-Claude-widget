@@ -112,13 +112,14 @@ type RenderedImage = { mime: string; base64: string; url: string } | { error: st
 
 // Render a Figma node to a PNG and cache it (keyed by node id + file version).
 // Cached reads only need a cheap depth=1 version check, never the whole file.
-async function renderAndCache(nodeId: string, name: string, group: string): Promise<RenderedImage> {
+async function renderAndCache(nodeId: string, name: string, group: string, theme = ""): Promise<RenderedImage> {
   const { token, fileKey } = await effectiveFigma();
-  const cached = await store.getImage(nodeId);
+  const cached = await store.getImage(nodeId, theme);
+  const imgUrl = `/api/figma/image/${encodeURIComponent(nodeId)}${theme ? `?theme=${encodeURIComponent(theme)}` : ""}`;
   const asResult = (img: NonNullable<typeof cached>): RenderedImage => ({
     mime: img.mime,
     base64: img.data.toString("base64"),
-    url: `/api/figma/image/${encodeURIComponent(nodeId)}`,
+    url: imgUrl,
   });
 
   if (!token || !fileKey) {
@@ -147,6 +148,7 @@ async function renderAndCache(nodeId: string, name: string, group: string): Prom
   const { data, mime } = await downloadImage(src);
   await store.saveImage({
     nodeId,
+    theme,
     fileKey,
     fileVersion: version,
     name,
@@ -155,7 +157,7 @@ async function renderAndCache(nodeId: string, name: string, group: string): Prom
     data,
     fetchedAt: new Date().toISOString(),
   });
-  return { mime, base64: data.toString("base64"), url: `/api/figma/image/${encodeURIComponent(nodeId)}` };
+  return { mime, base64: data.toString("base64"), url: imgUrl };
 }
 
 // ---- Background render-cache warm-up -------------------------------------
@@ -190,11 +192,14 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
     }
 
     // Drop cached images that are no longer targets (e.g. after a render-strategy
-    // change or components removed from the file) so the cache stays clean.
+    // change or components removed from the file) so the cache stays clean. Only
+    // the default-theme entries are ours; plugin-uploaded themes are left alone.
     const keep = new Set(targets.map((t) => t.nodeId));
+    let existing: Awaited<ReturnType<typeof store.listImages>> = [];
     try {
-      for (const img of await store.listImages()) {
-        if (!keep.has(img.nodeId)) await store.deleteImage(img.nodeId);
+      existing = await store.listImages();
+      for (const img of existing) {
+        if (img.theme === "" && !keep.has(img.nodeId)) await store.deleteImage(img.nodeId, "");
       }
     } catch (err) {
       renderJob.errors.push({ name: "(prune)", nodeId: "", error: (err as Error).message });
@@ -203,7 +208,7 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
     // Work out what actually needs rendering up front (single list query), so we
     // never call the Figma Images API for nodes we already have. This is what
     // keeps re-warms cheap and avoids rate limits.
-    const cached = new Map((await store.listImages()).map((i) => [i.nodeId, i.fileVersion]));
+    const cached = new Map(existing.filter((i) => i.theme === "").map((i) => [i.nodeId, i.fileVersion]));
     const pending = targets.filter((t) => cached.get(t.nodeId) !== version);
     const alreadyCached = targets.length - pending.length;
     renderJob.rendered += alreadyCached;
@@ -229,6 +234,7 @@ async function runRenderJob(token: string, fileKey: string): Promise<void> {
           const { data, mime } = await downloadImage(src);
           await store.saveImage({
             nodeId: t.nodeId,
+            theme: "",
             fileKey,
             fileVersion: version,
             name: t.name,
@@ -548,11 +554,15 @@ function createMcpServer(): McpServer {
       description:
         "Get a real rendered image of a design-system component by name (e.g. 'Button', 'Toggle switch', 'Checkbox'). " +
         "To target a specific variation use 'Component / Variant', e.g. 'Button / Enabled=false' or 'Chip / Size=Small'. " +
+        "Some libraries also have theme-specific renders (e.g. 'Light', 'Dark'); pass theme when you need a specific one. " +
         "Use this for visual reference when generating an on-brand mockup image. Served from cache.",
-      inputSchema: { query: z.string().describe("Component name, optionally 'Component / Variant'.") },
+      inputSchema: {
+        query: z.string().describe("Component name, optionally 'Component / Variant'."),
+        theme: z.string().optional().describe("Theme name, e.g. 'Light' or 'Dark'. Omit for the default render."),
+      },
       annotations: READ_ONLY_ANNOTATIONS,
     },
-    async ({ query }) => {
+    async ({ query, theme }) => {
       try {
         let targets = (await store.getTargets())?.targets ?? [];
         if (!targets.length) {
@@ -566,7 +576,7 @@ function createMcpServer(): McpServer {
           const names = [...new Set(targets.map((x) => x.group || x.name))].slice(0, 40).join(", ");
           return { content: [{ type: "text" as const, text: `No component matching '${query}'. Available: ${names}` }], isError: true };
         }
-        return imageResult(await renderAndCache(t.nodeId, t.name, t.group));
+        return imageResult(await renderAndCache(t.nodeId, t.name, t.group, theme ?? ""));
       } catch (err) {
         return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
       }
@@ -613,7 +623,8 @@ function formatSpec(spec: Spec): string {
 
 const app = express();
 app.use(cors({ exposedHeaders: ["Mcp-Session-Id"] }));
-app.use(express.json());
+// Large limit: the Figma plugin uploads batches of base64 PNGs.
+app.use(express.json({ limit: "64mb" }));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, specs: store.ready ? null : "initializing", github: configReady(githubCfg) });
@@ -749,11 +760,12 @@ app.get("/api/figma/stats", async (_req, res) => {
   }
 });
 
-// GET /api/figma/image/:nodeId — serve a cached component render.
+// GET /api/figma/image/:nodeId — serve a cached component render (?theme=Light optional).
 app.get("/api/figma/image/:nodeId", async (req, res) => {
-  const img = await store.getImage(req.params.nodeId);
+  const theme = typeof req.query.theme === "string" ? req.query.theme : "";
+  const img = await store.getImage(req.params.nodeId, theme);
   if (!img) {
-    res.status(404).json({ error: "Not rendered yet. Call render_figma_node first." });
+    res.status(404).json({ error: "Not rendered yet. Call render_figma_node first, or upload it from the Figma plugin." });
     return;
   }
   res.setHeader("Content-Type", img.mime);
@@ -764,6 +776,47 @@ app.get("/api/figma/image/:nodeId", async (req, res) => {
 // GET /api/figma/images — list cached component renders.
 app.get("/api/figma/images", async (_req, res) => {
   res.json({ images: await store.listImages() });
+});
+
+// POST /api/figma/upload — the Figma plugin pushes rendered PNGs (per theme) here.
+// Body: { theme, fileVersion?, fileKey?, images: [{ nodeId, name, group, mime?, base64 }] }
+app.post("/api/figma/upload", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  const body = req.body ?? {};
+  const images: any[] = Array.isArray(body.images) ? body.images : [];
+  if (!images.length) {
+    res.status(400).json({ error: "No images in body." });
+    return;
+  }
+  const theme: string = typeof body.theme === "string" ? body.theme : "";
+  const { fileKey } = await effectiveFigma();
+  const fileVersion: string = body.fileVersion ?? "";
+  let saved = 0;
+  const errors: { nodeId: string; error: string }[] = [];
+  for (const im of images) {
+    try {
+      if (!im?.nodeId || !im?.base64) throw new Error("nodeId and base64 are required");
+      const data = Buffer.from(im.base64, "base64");
+      await store.saveImage({
+        nodeId: String(im.nodeId),
+        theme,
+        fileKey: body.fileKey ?? fileKey ?? "",
+        fileVersion,
+        name: String(im.name ?? ""),
+        group: String(im.group ?? im.name ?? ""),
+        mime: String(im.mime ?? "image/png"),
+        data,
+        fetchedAt: new Date().toISOString(),
+      });
+      saved++;
+    } catch (err) {
+      errors.push({ nodeId: String(im?.nodeId ?? "?"), error: (err as Error).message });
+    }
+  }
+  res.json({ ok: true, theme, saved, failed: errors.length, errors: errors.slice(0, 20) });
 });
 
 // DELETE /api/figma/images — clear the component render cache (admin).

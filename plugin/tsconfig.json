@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "outDir": "dist",
+    "lib": ["ES2019"],
+    "skipLibCheck": true,
+    "typeRoots": ["./node_modules/@figma"]
+  },
+  "include": ["code.ts"]
+}

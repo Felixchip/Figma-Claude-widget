@@ -104,6 +104,7 @@
   .lib-thumb img { max-width: 100%; max-height: 140px; object-fit: contain; display: block; }
   .lib-meta { padding: 10px 12px; border-top: 1px solid var(--border); }
   .lib-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-badge { display: inline-block; font-size: 10px; font-weight: 600; color: var(--primary2); background: var(--primary1); border-radius: 999px; padding: 1px 7px; vertical-align: middle; }
   .lib-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
   #library .lib-grid { animation: panelIn .5s cubic-bezier(.22,.61,.36,1) both; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
@@ -248,6 +249,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
     <div class="card">
       <div class="lib-toolbar">
         <input id="lib-search" type="search" placeholder="Search components…" autocomplete="off">
+        <select id="lib-theme" style="max-width:170px"></select>
         <span id="lib-count" style="font-size:13px;color:var(--muted)"></span>
         <button id="btn-render">Render / refresh</button>
       </div>
@@ -1110,38 +1112,54 @@ async function loadLibrary() {
     const r = await fetch(mcpUrl + "/api/figma/images");
     const d = await r.json();
     libraryImages = d.images || [];
+    const themes = [...new Set(libraryImages.map(i => i.theme || ""))].sort();
+    const sel = document.getElementById("lib-theme");
+    const prev = sel.value;
+    sel.innerHTML = ['<option value="__all">All themes</option>']
+      .concat(themes.map(t => `<option value="${esc(t)}">${t === "" ? "Default" : esc(t)}</option>`))
+      .join("");
+    sel.value = themes.includes(prev) || prev === "__all" ? prev : "__all";
     renderLibrary();
   } catch (e) {
     grid.innerHTML = '<p style="color:var(--red)">Could not load images: ' + esc(e.message) + "</p>";
   }
 }
 
+function imageSrc(i) {
+  return `${mcpUrl}/api/figma/image/${encodeURIComponent(i.nodeId)}` + (i.theme ? `?theme=${encodeURIComponent(i.theme)}` : "");
+}
+
 function renderLibrary() {
   const grid = document.getElementById("lib-grid");
   const count = document.getElementById("lib-count");
   const q = (document.getElementById("lib-search").value || "").trim().toLowerCase();
+  const theme = document.getElementById("lib-theme").value || "__all";
   if (!libraryImages.length) {
     count.textContent = "";
-    grid.innerHTML = '<p style="color:var(--muted)">No images rendered yet. Add your admin token and click <b>Render / refresh</b>.</p>';
+    grid.innerHTML = '<p style="color:var(--muted)">No images rendered yet. Add your admin token and click <b>Render / refresh</b>, or export from the Figma plugin.</p>';
     return;
   }
-  const rows = libraryImages.filter(i => !q || i.name.toLowerCase().includes(q) || i.group.toLowerCase().includes(q));
+  const rows = libraryImages.filter(i => {
+    if (theme !== "__all" && (i.theme || "") !== theme) return false;
+    return !q || i.name.toLowerCase().includes(q) || i.group.toLowerCase().includes(q);
+  });
   count.textContent = `${rows.length} of ${libraryImages.length} images`;
   if (!rows.length) {
-    grid.innerHTML = '<p style="color:var(--muted)">No components match your search.</p>';
+    grid.innerHTML = '<p style="color:var(--muted)">No components match your filters.</p>';
     return;
   }
   grid.innerHTML = rows.map(i => `
     <div class="lib-item">
-      <div class="lib-thumb"><img loading="lazy" alt="${esc(i.name)}" src="${mcpUrl}/api/figma/image/${encodeURIComponent(i.nodeId)}"></div>
+      <div class="lib-thumb"><img loading="lazy" alt="${esc(i.name)}" src="${imageSrc(i)}"></div>
       <div class="lib-meta">
-        <div class="lib-name" title="${esc(i.name)}">${esc(i.group)}</div>
+        <div class="lib-name" title="${esc(i.name)}">${esc(i.group)}${i.theme ? ` <span class="lib-badge">${esc(i.theme)}</span>` : ""}</div>
         <div class="lib-sub">${i.name !== i.group ? esc(i.name) + " · " : ""}${fmtBytes(i.bytes)}</div>
       </div>
     </div>`).join("");
 }
 
 document.getElementById("lib-search").addEventListener("input", renderLibrary);
+document.getElementById("lib-theme").addEventListener("change", renderLibrary);
 
 document.getElementById("btn-render").addEventListener("click", async () => {
   const status = document.getElementById("lib-status");

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --brand: #325FFF; --brand-pressed: #002DCC; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; font: 12px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         color: var(--figma-color-text); background: var(--figma-color-bg); }
+  h1 { font-size: 13px; margin: 0 0 2px; }
+  p.sub { margin: 0 0 14px; color: var(--figma-color-text-secondary); }
+  label { display: block; font-size: 11px; color: var(--figma-color-text-secondary); margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 7px 9px; font: inherit; color: var(--figma-color-text);
+    background: var(--figma-color-bg); border: 1px solid var(--figma-color-border); border-radius: 6px; }
+  input:focus, select:focus { outline: none; border-color: var(--brand); }
+  .modes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+  .modes label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--figma-color-text); }
+  .modes input { width: auto; }
+  .row { display: flex; gap: 8px; margin-top: 16px; }
+  button { flex: 1; padding: 9px 12px; font: inherit; font-weight: 600; border: none; border-radius: 999px; cursor: pointer; }
+  button.primary { background: var(--brand); color: #fff; }
+  button.primary:hover { background: var(--brand-pressed); }
+  button.primary:disabled { opacity: .5; cursor: default; }
+  button.secondary { background: var(--figma-color-bg-secondary); color: var(--figma-color-text); }
+  .meta { margin-top: 12px; padding: 10px; border-radius: 8px; background: var(--figma-color-bg-secondary); font-size: 11px; }
+  .meta b { font-weight: 600; }
+  #log { margin-top: 12px; max-height: 150px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+         font-size: 11px; white-space: pre-wrap; color: var(--figma-color-text-secondary); }
+  .bar { height: 6px; border-radius: 999px; background: var(--figma-color-bg-secondary); overflow: hidden; margin-top: 10px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .2s ease; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <h1>GSA Build Kit Export</h1>
+  <p class="sub">Exports every component variant, once per theme, and uploads the images to your Build Kit.</p>
+
+  <label>Server URL</label>
+  <input id="server" placeholder="https://your-app.up.railway.app" value="https://dsgn.up.railway.app">
+
+  <label>Admin token (ADMIN_TOKEN)</label>
+  <input id="token" type="password" placeholder="paste your admin token" autocomplete="off">
+
+  <div id="setup" class="hidden">
+    <label>Theme collection</label>
+    <select id="collection"></select>
+
+    <label>Themes to export</label>
+    <div class="modes" id="modes"></div>
+
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <div class="row">
+    <button class="secondary" id="detect">Detect</button>
+    <button class="primary" id="go">Export &amp; upload</button>
+  </div>
+  <div class="bar"><i id="progress"></i></div>
+  <div id="log"></div>
+
+<script>
+  var info = null;
+
+  function log(msg) {
+    var el = document.getElementById('log');
+    el.textContent += (el.textContent ? '\n' : '') + msg;
+    el.scrollTop = el.scrollHeight;
+  }
+  function setProgress(done, of) {
+    var pct = of ? Math.round((done / of) * 100) : 0;
+    document.getElementById('progress').style.width = pct + '%';
+  }
+  function post(msg) { parent.postMessage({ pluginMessage: msg }, '*'); }
+
+  function renderCollections() {
+    var sel = document.getElementById('collection');
+    var modesEl = document.getElementById('modes');
+    if (!info) return;
+    document.getElementById('setup').classList.remove('hidden');
+    sel.innerHTML = info.collections.map(function (c) {
+      return '<option value="' + c.id + '">' + c.name + ' (' + c.modes.length + ' modes)</option>';
+    }).join('');
+    var preferred = info.collections.find(function (c) {
+      return c.modes.some(function (m) { return /^light$/i.test(m.name); }) &&
+             c.modes.some(function (m) { return /^dark$/i.test(m.name); });
+    });
+    if (preferred) sel.value = preferred.id;
+    renderModes();
+    document.getElementById('meta').innerHTML =
+      '<b>' + info.fileName + '</b><br>' + info.variantCount + ' variants across all components';
+  }
+
+  function currentCollection() {
+    var id = document.getElementById('collection').value;
+    return (info.collections || []).find(function (c) { return c.id === id; });
+  }
+
+  function renderModes() {
+    var c = currentCollection();
+    var el = document.getElementById('modes');
+    if (!c) { el.innerHTML = ''; return; }
+    el.innerHTML = c.modes.map(function (m) {
+      var checked = /^light$|^dark$/i.test(m.name) ? ' checked' : '';
+      return '<label><input type="checkbox" value="' + m.modeId + '"' + checked + '> ' + m.name + '</label>';
+    }).join('');
+  }
+
+  document.getElementById('collection').addEventListener('change', renderModes);
+
+  document.getElementById('detect').addEventListener('click', function () {
+    document.getElementById('log').textContent = '';
+    log('Detecting…');
+    post({ type: 'detect' });
+  });
+
+  document.getElementById('go').addEventListener('click', function () {
+    var server = document.getElementById('server').value.trim().replace(/\/$/, '');
+    var token = document.getElementById('token').value.trim();
+    var c = currentCollection();
+    var modeIds = Array.prototype.slice
+      .call(document.querySelectorAll('#modes input:checked'))
+      .map(function (i) { return i.value; });
+    if (!server) return log('Enter a server URL.');
+    if (!token) return log('Enter your admin token.');
+    if (!c) return log('No theme collection found.');
+    if (!modeIds.length) return log('Pick at least one theme.');
+    document.getElementById('go').disabled = true;
+    log('Starting export of ' + modeIds.length + ' theme(s)…');
+    post({ type: 'export', opts: { server: server, token: token, collectionId: c.id, modeIds: modeIds } });
+  });
+
+  window.onmessage = async function (event) {
+    var msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === 'detected') {
+      info = msg.info;
+      log('Found ' + info.variantCount + ' variants and ' + info.collections.length + ' theme collection(s).');
+      renderCollections();
+      return;
+    }
+    if (msg.type === 'progress') {
+      setProgress(msg.done, msg.of);
+      return;
+    }
+    if (msg.type === 'batch') {
+      if (msg.progress) setProgress(msg.progress.done, msg.progress.of);
+      try {
+        var res = await fetch(msg.server + '/api/figma/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + msg.token },
+          body: JSON.stringify({
+            theme: msg.theme,
+            fileVersion: msg.fileVersion,
+            fileKey: msg.fileKey,
+            images: msg.images
+          })
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        log(msg.theme + ': uploaded ' + data.saved + (data.failed ? ' (' + data.failed + ' failed)' : ''));
+      } catch (e) {
+        log(msg.theme + ': upload failed — ' + e.message);
+      }
+      post({ type: 'ack' });
+      return;
+    }
+    if (msg.type === 'themeDone') {
+      log(msg.theme + ' done' + (msg.skipped ? ' (' + msg.skipped + ' skipped)' : ''));
+      return;
+    }
+    if (msg.type === 'done') {
+      log('Finished. ' + msg.total + ' images uploaded.');
+      setProgress(1, 1);
+      document.getElementById('go').disabled = false;
+      return;
+    }
+    if (msg.type === 'error') {
+      log('Error: ' + msg.message);
+      document.getElementById('go').disabled = false;
+      return;
+    }
+  };
+
+  post({ type: 'detect' });
+</script>
+</body>
+</html>

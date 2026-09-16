@@ -1,0 +1,13 @@
+{
+  "name": "GSA Build Kit Export",
+  "id": "gsa-build-kit-export",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "Uploads exported component PNGs (per theme) to a user-configured GSA Build Kit server."
+  }
+}

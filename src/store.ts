@@ -48,10 +48,10 @@ export interface SpecStore {
   saveRegistry(entries: unknown[]): Promise<void>;
   getAliases(): Promise<unknown[]>;
   saveAliases(aliases: unknown[]): Promise<void>;
-  getImage(nodeId: string): Promise<ComponentImage | undefined>;
+  getImage(nodeId: string, theme?: string): Promise<ComponentImage | undefined>;
   saveImage(img: ComponentImage): Promise<void>;
   listImages(): Promise<ComponentImageMeta[]>;
-  deleteImage(nodeId: string): Promise<void>;
+  deleteImage(nodeId: string, theme?: string): Promise<void>;
   clearImages(): Promise<void>;
   saveTargets(targets: RenderTarget[], fileVersion: string): Promise<void>;
   getTargets(): Promise<{ targets: RenderTarget[]; fileVersion: string } | undefined>;
@@ -59,6 +59,7 @@ export interface SpecStore {
 
 export type ComponentImage = {
   nodeId: string;
+  theme: string;
   fileKey: string;
   fileVersion: string;
   name: string;
@@ -124,16 +125,22 @@ class PostgresStore implements SpecStore {
     `);
     await this.pool.query(`
       CREATE TABLE IF NOT EXISTS component_images (
-        node_id TEXT PRIMARY KEY,
+        node_id TEXT NOT NULL,
+        theme TEXT NOT NULL DEFAULT '',
         file_key TEXT NOT NULL DEFAULT '',
         file_version TEXT NOT NULL DEFAULT '',
         name TEXT NOT NULL DEFAULT '',
         group_name TEXT NOT NULL DEFAULT '',
         mime TEXT NOT NULL DEFAULT 'image/png',
         data BYTEA NOT NULL,
-        fetched_at TIMESTAMPTZ NOT NULL
+        fetched_at TIMESTAMPTZ NOT NULL,
+        PRIMARY KEY (node_id, theme)
       )
     `);
+    // Migration for installs created before themes existed.
+    await this.pool.query(`ALTER TABLE component_images ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT ''`);
+    await this.pool.query(`ALTER TABLE component_images DROP CONSTRAINT IF EXISTS component_images_pkey`);
+    await this.pool.query(`ALTER TABLE component_images ADD PRIMARY KEY (node_id, theme)`);
     this.ready = true;
   }
 
@@ -232,12 +239,13 @@ class PostgresStore implements SpecStore {
     await this.setSetting("component_aliases", JSON.stringify(aliases));
   }
 
-  async getImage(nodeId: string): Promise<ComponentImage | undefined> {
-    const res = await this.pool.query("SELECT * FROM component_images WHERE node_id = $1", [nodeId]);
+  async getImage(nodeId: string, theme = ""): Promise<ComponentImage | undefined> {
+    const res = await this.pool.query("SELECT * FROM component_images WHERE node_id = $1 AND theme = $2", [nodeId, theme]);
     if (res.rows.length === 0) return undefined;
     const r = res.rows[0];
     return {
       nodeId: r.node_id,
+      theme: r.theme ?? "",
       fileKey: r.file_key,
       fileVersion: r.file_version,
       name: r.name,
@@ -250,9 +258,9 @@ class PostgresStore implements SpecStore {
 
   async saveImage(img: ComponentImage): Promise<void> {
     await this.pool.query(
-      `INSERT INTO component_images (node_id, file_key, file_version, name, group_name, mime, data, fetched_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       ON CONFLICT (node_id) DO UPDATE SET
+      `INSERT INTO component_images (node_id, theme, file_key, file_version, name, group_name, mime, data, fetched_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (node_id, theme) DO UPDATE SET
          file_key = EXCLUDED.file_key,
          file_version = EXCLUDED.file_version,
          name = EXCLUDED.name,
@@ -260,16 +268,17 @@ class PostgresStore implements SpecStore {
          mime = EXCLUDED.mime,
          data = EXCLUDED.data,
          fetched_at = EXCLUDED.fetched_at`,
-      [img.nodeId, img.fileKey, img.fileVersion, img.name, img.group, img.mime, img.data, img.fetchedAt]
+      [img.nodeId, img.theme ?? "", img.fileKey, img.fileVersion, img.name, img.group, img.mime, img.data, img.fetchedAt]
     );
   }
 
   async listImages(): Promise<ComponentImageMeta[]> {
     const res = await this.pool.query(
-      "SELECT node_id, file_key, file_version, name, group_name, mime, fetched_at, octet_length(data) AS bytes FROM component_images ORDER BY group_name, name"
+      "SELECT node_id, theme, file_key, file_version, name, group_name, mime, fetched_at, octet_length(data) AS bytes FROM component_images ORDER BY group_name, name, theme"
     );
     return res.rows.map((r) => ({
       nodeId: r.node_id,
+      theme: r.theme ?? "",
       fileKey: r.file_key,
       fileVersion: r.file_version,
       name: r.name,
@@ -284,8 +293,8 @@ class PostgresStore implements SpecStore {
     await this.pool.query("DELETE FROM component_images");
   }
 
-  async deleteImage(nodeId: string): Promise<void> {
-    await this.pool.query("DELETE FROM component_images WHERE node_id = $1", [nodeId]);
+  async deleteImage(nodeId: string, theme = ""): Promise<void> {
+    await this.pool.query("DELETE FROM component_images WHERE node_id = $1 AND theme = $2", [nodeId, theme]);
   }
 
   async saveTargets(targets: RenderTarget[], fileVersion: string): Promise<void> {
@@ -453,17 +462,18 @@ class MemoryStore implements SpecStore {
     this.settings.set("component_aliases", JSON.stringify(aliases));
   }
 
-  async getImage(nodeId: string): Promise<ComponentImage | undefined> {
-    return this.images.get(nodeId);
+  async getImage(nodeId: string, theme = ""): Promise<ComponentImage | undefined> {
+    return this.images.get(`${nodeId}\u0000${theme}`);
   }
 
   async saveImage(img: ComponentImage): Promise<void> {
-    this.images.set(img.nodeId, img);
+    this.images.set(`${img.nodeId}\u0000${img.theme ?? ""}`, img);
   }
 
   async listImages(): Promise<ComponentImageMeta[]> {
     return [...this.images.values()].map((img) => ({
       nodeId: img.nodeId,
+      theme: img.theme ?? "",
       fileKey: img.fileKey,
       fileVersion: img.fileVersion,
       name: img.name,
@@ -478,8 +488,8 @@ class MemoryStore implements SpecStore {
     this.images.clear();
   }
 
-  async deleteImage(nodeId: string): Promise<void> {
-    this.images.delete(nodeId);
+  async deleteImage(nodeId: string, theme = ""): Promise<void> {
+    this.images.delete(`${nodeId}\u0000${theme}`);
   }
 
   async saveTargets(targets: RenderTarget[], fileVersion: string): Promise<void> {

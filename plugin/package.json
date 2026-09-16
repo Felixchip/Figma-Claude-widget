@@ -1,0 +1,14 @@
+{
+  "name": "gsa-build-kit-figma-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Figma plugin that exports every component variant per theme (Light/Dark) and uploads them to the GSA Build Kit.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.100.0",
+    "typescript": "^5.5.0"
+  }
+}
