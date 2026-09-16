@@ -48,6 +48,8 @@ export interface SpecStore {
   saveRegistry(entries: unknown[]): Promise<void>;
   getAliases(): Promise<unknown[]>;
   saveAliases(aliases: unknown[]): Promise<void>;
+  getPreferredTheme(): Promise<string>;
+  setPreferredTheme(theme: string): Promise<void>;
   getImage(nodeId: string, theme?: string): Promise<ComponentImage | undefined>;
   saveImage(img: ComponentImage): Promise<void>;
   listImages(): Promise<ComponentImageMeta[]>;
@@ -187,6 +189,14 @@ class PostgresStore implements SpecStore {
 
   async getUsageRules(): Promise<string | undefined> {
     return this.getSetting("usage_rules");
+  }
+
+  async getPreferredTheme(): Promise<string> {
+    return (await this.getSetting("preferred_theme")) ?? "";
+  }
+
+  async setPreferredTheme(theme: string): Promise<void> {
+    await this.setSetting("preferred_theme", theme);
   }
 
   async saveUsageRules(rules: string): Promise<void> {
@@ -460,6 +470,14 @@ class MemoryStore implements SpecStore {
 
   async saveAliases(aliases: unknown[]): Promise<void> {
     this.settings.set("component_aliases", JSON.stringify(aliases));
+  }
+
+  async getPreferredTheme(): Promise<string> {
+    return this.settings.get("preferred_theme") ?? "";
+  }
+
+  async setPreferredTheme(theme: string): Promise<void> {
+    this.settings.set("preferred_theme", theme);
   }
 
   async getImage(nodeId: string, theme = ""): Promise<ComponentImage | undefined> {

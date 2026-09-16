@@ -255,6 +255,11 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       </div>
       <label style="margin-top:16px">Admin token <span style="color:var(--muted);font-weight:400">(needed to render)</span></label>
       <input id="library-admin-token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off">
+      <label style="margin-top:16px">Preferred theme for agents</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="lib-preferred" style="max-width:220px"></select>
+        <span id="lib-preferred-status" style="font-size:12px;color:var(--muted)"></span>
+      </div>
       <p id="lib-status" style="font-size:13px;color:var(--muted);margin:8px 0 0"></p>
     </div>
 
@@ -1119,11 +1124,56 @@ async function loadLibrary() {
       .concat(themes.map(t => `<option value="${esc(t)}">${t === "" ? "Default" : esc(t)}</option>`))
       .join("");
     sel.value = themes.includes(prev) || prev === "__all" ? prev : "__all";
+
+    const pref = document.getElementById("lib-preferred");
+    const prefPrev = pref.value;
+    pref.innerHTML = ['<option value="">Default render</option>']
+      .concat(themes.filter(t => t !== "").map(t => `<option value="${esc(t)}">${esc(t)}</option>`))
+      .join("");
+    if (prefPrev) pref.value = prefPrev;
     renderLibrary();
+    loadPreferredTheme();
   } catch (e) {
     grid.innerHTML = '<p style="color:var(--red)">Could not load images: ' + esc(e.message) + "</p>";
   }
 }
+
+async function loadPreferredTheme() {
+  const sel = document.getElementById("lib-preferred");
+  try {
+    const r = await fetch(mcpUrl + "/api/preferred-theme");
+    const d = await r.json();
+    sel.value = d.theme || "";
+  } catch {}
+}
+
+document.getElementById("lib-preferred").addEventListener("change", async () => {
+  const sel = document.getElementById("lib-preferred");
+  const status = document.getElementById("lib-preferred-status");
+  const headers = libraryAuthHeaders();
+  if (!headers.Authorization) {
+    status.style.color = "var(--red)";
+    status.textContent = "Enter your admin token first.";
+    return;
+  }
+  status.style.color = "var(--muted)";
+  status.textContent = "Saving…";
+  try {
+    const r = await fetch(mcpUrl + "/api/preferred-theme", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ theme: sel.value })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+    status.style.color = "var(--green)";
+    status.textContent = d.theme ? `Agents now get "${d.theme}".` : "Agents get the default render.";
+    setTimeout(() => { status.textContent = ""; }, 3000);
+  } catch (e) {
+    status.style.color = "var(--red)";
+    status.textContent = "Error: " + e.message;
+  }
+});
 
 function imageSrc(i) {
   return `${mcpUrl}/api/figma/image/${encodeURIComponent(i.nodeId)}` + (i.theme ? `?theme=${encodeURIComponent(i.theme)}` : "");

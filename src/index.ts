@@ -127,6 +127,12 @@ async function renderAndCache(nodeId: string, name: string, group: string, theme
     return { error: "Figma is not configured (token/file key)." };
   }
 
+  // Themed renders only ever come from the Figma plugin (the REST image API
+  // cannot pick a variable mode), so never try to render one on demand.
+  if (theme && !cached) {
+    return { error: `No '${theme}' render for node ${nodeId}. Export themes from the Figma plugin (GSA Build Kit Export).` };
+  }
+
   let version = "";
   if (cached) {
     try {
@@ -576,7 +582,14 @@ function createMcpServer(): McpServer {
           const names = [...new Set(targets.map((x) => x.group || x.name))].slice(0, 40).join(", ");
           return { content: [{ type: "text" as const, text: `No component matching '${query}'. Available: ${names}` }], isError: true };
         }
-        return imageResult(await renderAndCache(t.nodeId, t.name, t.group, theme ?? ""));
+        // Default to the configured preferred theme when it has a render for this
+        // component, so agents get e.g. Light without having to ask.
+        let useTheme = theme ?? "";
+        if (!useTheme) {
+          const preferred = await store.getPreferredTheme();
+          if (preferred && (await store.getImage(t.nodeId, preferred))) useTheme = preferred;
+        }
+        return imageResult(await renderAndCache(t.nodeId, t.name, t.group, useTheme));
       } catch (err) {
         return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
       }
@@ -628,6 +641,22 @@ app.use(express.json({ limit: "64mb" }));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, specs: store.ready ? null : "initializing", github: configReady(githubCfg) });
+});
+
+// GET /api/preferred-theme — the theme agents get when they don't ask for one.
+app.get("/api/preferred-theme", async (_req, res) => {
+  res.json({ theme: await store.getPreferredTheme() });
+});
+
+// PUT /api/preferred-theme — set it (admin). Empty string = the default render.
+app.put("/api/preferred-theme", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Set ADMIN_TOKEN and send it as a Bearer token." });
+    return;
+  }
+  const theme = typeof req.body?.theme === "string" ? req.body.theme : "";
+  await store.setPreferredTheme(theme);
+  res.json({ ok: true, theme });
 });
 
 app.get("/api/status", async (_req, res) => {
