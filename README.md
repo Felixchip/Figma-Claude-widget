@@ -214,5 +214,6 @@ Notes:
 ## Notes
 
 - Specs are stored in Postgres (in-memory fallback without `DATABASE_URL`). The server listens before the DB is ready and retries in the background.
-- Each MCP client gets its own server instance, so multiple agents can connect concurrently.
+- Each MCP request gets its own server instance, so multiple agents can connect concurrently.
+- The MCP endpoint is **stateless** (no session id): a redeploy restarts the container, and stateful sessions would be lost — clients would then hang on a stale session id. Stateless means deploys (and extra replicas) are invisible to connected agents. All tools are read-only request/response, so nothing is lost by not keeping sessions.
 - Without a `GITHUB_TOKEN`, GitHub API calls are rate-limited (60/hour/IP for public repos).

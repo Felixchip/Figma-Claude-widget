@@ -5,7 +5,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { createStore, type Spec, type SpecStore } from "./store.js";
 import { configReady, loadConfig, type GitHubConfig } from "./github.js";
@@ -1197,67 +1196,45 @@ app.post("/api/tools/:name", async (req, res) => {
   }
 });
 
-// --- MCP (Streamable HTTP) --------------------------------------------------
-
-const transports = new Map<string, StreamableHTTPServerTransport>();
-
+// --- MCP (Streamable HTTP, STATELESS) --------------------------------------
+// A fresh server + transport per request, with no session id. Stateful sessions
+// live in memory, so every redeploy invalidated them and clients hung on a stale
+// session id. Stateless means deploys (and multiple replicas) are invisible to
+// clients. All our tools are read-only request/response, so nothing is lost.
 app.post("/mcp", async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  let transport: StreamableHTTPServerTransport | undefined = sessionId ? transports.get(sessionId) : undefined;
-
-  if (!transport && !sessionId && isInitializeRequest(req.body)) {
-    const server = createMcpServer();
-    transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (id) => {
-        transports.set(id, transport!);
-      },
-    });
-    transport.onclose = () => {
-      if (transport!.sessionId) transports.delete(transport!.sessionId);
-    };
+  const server = createMcpServer();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+  res.on("close", () => {
+    transport.close().catch(() => {});
+    server.close().catch(() => {});
+  });
+  try {
     await server.connect(transport);
-  } else if (!transport) {
-    res.status(400).json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Bad Request: No valid session ID provided" },
-      id: null,
-    });
-    return;
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: "2.0",
+        error: { code: -32603, message: (err as Error).message },
+        id: null,
+      });
+    }
   }
-
-  await transport.handleRequest(req, res, req.body);
 });
 
-app.get("/mcp", async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  const transport = sessionId ? transports.get(sessionId) : undefined;
-  if (!transport) {
-    res.status(400).json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Bad Request: No valid session ID provided" },
-      id: null,
-    });
-    return;
-  }
-  await transport.handleRequest(req, res);
-});
-
-app.delete("/mcp", async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  const transport = sessionId ? transports.get(sessionId) : undefined;
-  if (!transport) {
-    res.status(400).json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Bad Request: No valid session ID provided" },
-      id: null,
-    });
-    return;
-  }
-  transports.delete(sessionId!);
-  await transport.close();
-  res.status(200).json({ ok: true });
-});
+// A stateless server has no standalone SSE stream or session to delete.
+const methodNotAllowed = (_req: express.Request, res: express.Response) => {
+  res.status(405).json({
+    jsonrpc: "2.0",
+    error: { code: -32000, message: "Method not allowed: this MCP server is stateless." },
+    id: null,
+  });
+};
+app.get("/mcp", methodNotAllowed);
+app.delete("/mcp", methodNotAllowed);
 
 // --- Web UI -----------------------------------------------------------------
 
