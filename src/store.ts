@@ -53,6 +53,7 @@ export interface SpecStore {
   getImage(nodeId: string, theme?: string): Promise<ComponentImage | undefined>;
   saveImage(img: ComponentImage): Promise<void>;
   listImages(): Promise<ComponentImageMeta[]>;
+  imageStats(): Promise<{ total: number; themes: { theme: string; count: number }[] }>;
   deleteImage(nodeId: string, theme?: string): Promise<void>;
   clearImages(): Promise<void>;
   saveTargets(targets: RenderTarget[], fileVersion: string): Promise<void>;
@@ -303,6 +304,14 @@ class PostgresStore implements SpecStore {
     await this.pool.query("DELETE FROM component_images");
   }
 
+  async imageStats(): Promise<{ total: number; themes: { theme: string; count: number }[] }> {
+    const res = await this.pool.query(
+      "SELECT theme, count(*)::int AS count FROM component_images GROUP BY theme ORDER BY theme"
+    );
+    const themes = res.rows.map((r) => ({ theme: r.theme ?? "", count: Number(r.count) }));
+    return { total: themes.reduce((n, t) => n + t.count, 0), themes };
+  }
+
   async deleteImage(nodeId: string, theme = ""): Promise<void> {
     await this.pool.query("DELETE FROM component_images WHERE node_id = $1 AND theme = $2", [nodeId, theme]);
   }
@@ -504,6 +513,16 @@ class MemoryStore implements SpecStore {
 
   async clearImages(): Promise<void> {
     this.images.clear();
+  }
+
+  async imageStats(): Promise<{ total: number; themes: { theme: string; count: number }[] }> {
+    const counts = new Map<string, number>();
+    for (const img of this.images.values()) {
+      const t = img.theme ?? "";
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    const themes = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([theme, count]) => ({ theme, count }));
+    return { total: themes.reduce((n, t) => n + t.count, 0), themes };
   }
 
   async deleteImage(nodeId: string, theme = ""): Promise<void> {

@@ -688,6 +688,7 @@ app.get("/api/status", async (_req, res) => {
     figma: await figmaStatus,
     figmaTools: Object.keys(FIGMA_TOOL_DEFS),
     storage: store.kind,
+    library: await store.imageStats(),
     commit: (process.env.RAILWAY_GIT_COMMIT_SHA || "").slice(0, 7) || undefined,
     builtAt: BUILD_TIME,
   });

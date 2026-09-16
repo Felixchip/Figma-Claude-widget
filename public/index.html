@@ -107,6 +107,19 @@
   .lib-badge { display: inline-block; font-size: 10px; font-weight: 600; color: var(--primary2); background: var(--primary1); border-radius: 999px; padding: 1px 7px; vertical-align: middle; }
   .lib-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
   #library .lib-grid { animation: panelIn .5s cubic-bezier(.22,.61,.36,1) both; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 100; animation: fadeIn .15s ease; }
+  .modal { background: var(--panel); border-radius: var(--radius); width: 100%; max-width: 640px; max-height: 85vh; overflow: auto; padding: 24px 28px; box-shadow: 0 24px 60px rgba(0,0,0,0.25); animation: panelIn .25s cubic-bezier(.22,.61,.36,1) both; }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .modal-head h3 { margin: 0; }
+  .modal-close { background: none; color: var(--muted); border: none; font-size: 24px; line-height: 1; padding: 0 6px; border-radius: 8px; cursor: pointer; }
+  .modal-close:hover { background: var(--fill1); color: var(--text); }
+  .how-steps { margin: 12px 0 0; padding-left: 20px; }
+  .how-steps > li { margin-bottom: 14px; color: var(--muted); }
+  .how-steps > li b { color: var(--text); }
+  .how-steps ul { margin: 6px 0 0; padding-left: 18px; }
+  .how-steps ul li { margin-bottom: 4px; }
+  .how-note { margin: 4px 0 0; font-size: 13px; color: var(--muted); border-top: 1px solid var(--outline5); padding-top: 12px; }
+  #overview #btn-how { margin-left: 10px; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
   label.field-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
   input, textarea, select { width: 100%; background: var(--content1); border: 1px solid var(--outline2); border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; }
@@ -210,6 +223,7 @@
     <h2>Design, build, and brainstorm, the CMC way</h2>
     <p>Design, build, and brainstorm your ideas with your preferred agent, ChatGPT, Claude, DeepSeek, or any MCP-capable agent, while staying on the CMCMarkets brand and components.</p>
     <div class="status" id="status"><span class="dot"></span><span id="status-text">Checking server…</span></div>
+    <button id="btn-how" class="secondary" style="margin-bottom:24px">How to use</button>
 
     <div class="card">
       <label class="field-title">Connect your agent</label>
@@ -303,6 +317,12 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <h3>GitHub components repo</h3>
         <p id="repo-label">Repo: <em>not configured</em></p>
         <p>The SwiftUI components agents use when building. Configured via <code>GITHUB_REPO</code> / <code>GITHUB_TOKEN</code>.</p>
+      </div>
+
+      <div class="card">
+        <h3>Component library (rendered images)</h3>
+        <p id="lib-source-info">Rendered images of every component and variant, so agents can produce on-brand mockups without re-rendering from Figma.</p>
+        <p><a href="/library" id="lib-source-link">Browse the component library →</a></p>
       </div>
 
       <div class="card">
@@ -411,6 +431,44 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
     </div>
   </section>
 </main>
+
+<div id="how-modal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="how-title">
+    <div class="modal-head">
+      <h3 id="how-title">How to use the Build Kit</h3>
+      <button class="modal-close" id="how-close" aria-label="Close">×</button>
+    </div>
+    <ol class="how-steps">
+      <li>
+        <b>Connect your agent (once).</b>
+        Pick your agent above and add the MCP server using the config shown. It exposes the
+        design library, components, tokens and rules to that agent.
+      </li>
+      <li>
+        <b>Ask for what you want.</b> The Build Kit routes the request:
+        <ul>
+          <li><b>Design in Figma</b> — "design this in my Figma file". The agent creates it in
+            Figma (via Figma's own MCP, with your Figma account).</li>
+          <li><b>Build</b> — "build this screen". The agent writes SwiftUI reusing the real
+            components from the code repo.</li>
+          <li><b>Render</b> — "generate an image of this screen". The agent composes a mockup
+            from the real component images. No Figma connection needed.</li>
+        </ul>
+      </li>
+      <li>
+        <b>Browse the library.</b> The <a href="/library">Library</a> tab shows every rendered
+        component and variant, with a search box and theme filter. Agents pull these images
+        instantly, so they never re-render from Figma.
+      </li>
+      <li>
+        <b>Keep it current.</b> When the Figma library changes, open <a href="/library">Library</a>
+        and click <b>Render / refresh</b> (admin token required). Themes like Light/Dark are
+        exported from the Figma plugin.
+      </li>
+    </ol>
+    <p class="how-note">Everything here is read-only: agents never change your Figma file or repo.</p>
+  </div>
+</div>
 
 <script>
 const url = new URL(window.location.href);
@@ -526,14 +584,38 @@ async function checkStatus() {
     let parts = [];
     if (d.configured) parts.push(`repo ${d.repo}`);
     if (d.figma?.connected) parts.push(`Figma: ${d.figma.fileName || d.figma.fileKey || "connected"}`);
+    if (d.library?.total) {
+      const themes = (d.library.themes || []).map(t => t.theme || "default");
+      parts.push(`library: ${d.library.total} images${themes.length > 1 ? ` (${themes.join(", ")})` : ""}`);
+    }
     document.getElementById("status-text").textContent = parts.length
       ? `Server ready · ${parts.join(" · ")}`
       : `Server up, but no repo configured (set GITHUB_REPO)`;
     if (d.repo) document.getElementById("repo-label").innerHTML = `Repo: <em>${d.repo}</em>`;
+
+    const libInfo = document.getElementById("lib-source-info");
+    if (libInfo) {
+      if (d.library?.total) {
+        const themes = (d.library.themes || []).map(t => `${t.theme || "default"} (${t.count})`);
+        libInfo.textContent = `${d.library.total} rendered images: ${themes.join(", ")}. Agents fetch these instantly, so they never re-render from Figma.`;
+      } else {
+        libInfo.textContent = "No images rendered yet. Open the Library and click Render / refresh to populate it.";
+      }
+    }
   } catch (e) {
     document.getElementById("status-text").textContent = "Cannot reach server";
   }
 }
+
+// How-to-use modal
+const howModal = document.getElementById("how-modal");
+function toggleHow(open) {
+  howModal.classList.toggle("hidden", !open);
+}
+document.getElementById("btn-how").addEventListener("click", () => toggleHow(true));
+document.getElementById("how-close").addEventListener("click", () => toggleHow(false));
+howModal.addEventListener("click", (e) => { if (e.target === howModal) toggleHow(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleHow(false); });
 
 // routing
 const ROUTES = {
