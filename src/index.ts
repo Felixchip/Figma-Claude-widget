@@ -110,6 +110,21 @@ async function effectiveFigma(): Promise<{ token?: string; fileKey?: string }> {
 
 type RenderedImage = { mime: string; base64: string; url: string } | { error: string };
 
+// Cache the file version briefly so a run of image lookups doesn't hit Figma once
+// per image (the warm-up refreshes it anyway when the file actually changes).
+let versionCache: { fileKey: string; version: string; at: number } | null = null;
+const VERSION_TTL_MS = 60_000;
+
+async function cachedFileVersion(token: string, fileKey: string): Promise<string> {
+  if (versionCache && versionCache.fileKey === fileKey && Date.now() - versionCache.at < VERSION_TTL_MS) {
+    return versionCache.version;
+  }
+  const meta = await figmaFileMeta(token, fileKey);
+  const version = meta.version ?? "";
+  versionCache = { fileKey, version, at: Date.now() };
+  return version;
+}
+
 // Render a Figma node to a PNG and cache it (keyed by node id + file version).
 // Cached reads only need a cheap depth=1 version check, never the whole file.
 async function renderAndCache(nodeId: string, name: string, group: string, theme = ""): Promise<RenderedImage> {
@@ -136,16 +151,14 @@ async function renderAndCache(nodeId: string, name: string, group: string, theme
   let version = "";
   if (cached) {
     try {
-      const meta = await figmaFileMeta(token, fileKey);
-      version = meta.version ?? "";
+      version = await cachedFileVersion(token, fileKey);
       if (version === cached.fileVersion) return asResult(cached);
     } catch {
       // Version check failed (rate limit / network): serve the cached copy.
       return asResult(cached);
     }
   } else {
-    const meta = await figmaFileMeta(token, fileKey);
-    version = meta.version ?? "";
+    version = await cachedFileVersion(token, fileKey);
   }
 
   const images = await figmaImages(token, fileKey, [nodeId], { format: "png", scale: 2 });
