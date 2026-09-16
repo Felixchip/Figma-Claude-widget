@@ -75,6 +75,20 @@ async function collectTargets(): Promise<Target[]> {
 async function fileInfo() {
   allCollections = await figma.variables.getLocalVariableCollectionsAsync();
   collections = allCollections.filter((c) => (c.modes ?? []).length >= 2);
+  let library: { name: string; key: string; libraryName: string; modes: { modeId: string; name: string }[] }[] = [];
+  try {
+    const libs = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    for (const l of libs) {
+      library.push({
+        name: l.name,
+        key: l.key,
+        libraryName: l.libraryName,
+        modes: ((l as any).modes ?? []).map((m: any) => ({ modeId: m.modeId, name: m.name })),
+      });
+    }
+  } catch {
+    library = [];
+  }
   const targets = await collectTargets();
   return {
     fileName: figma.root.name,
@@ -87,6 +101,7 @@ async function fileInfo() {
       remote: !!c.remote,
       modes: (c.modes ?? []).map((m) => ({ modeId: m.modeId, name: m.name })),
     })),
+    library,
   };
 }
 

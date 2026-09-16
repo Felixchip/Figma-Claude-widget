@@ -99,6 +99,14 @@
     info.collections.forEach(function (c) {
       log('  · ' + c.name + ' → ' + c.modes.map(function (m) { return m.name; }).join(', '));
     });
+    if (info.library && info.library.length) {
+      log('Library collections visible:');
+      info.library.forEach(function (l) {
+        log('  · ' + l.libraryName + ' / ' + l.name + (l.modes.length ? ' → ' + l.modes.map(function (m) { return m.name; }).join(', ') : ''));
+      });
+    } else {
+      log('No library variable collections visible.');
+    }
     document.getElementById('meta').innerHTML =
       '<b>' + info.fileName + '</b><br>' + info.variantCount + ' variants · ' +
       info.usableCount + ' theme collection(s)';
