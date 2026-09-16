@@ -170,6 +170,8 @@ npm install
 npm run build   # outputs dist/code.js
 ```
 
+`dist/code.js` is committed, so you only need the build step if you change `code.ts`.
+
 In Figma: **Menu → Plugins → Development → Import plugin from manifest** and pick
 `plugin/manifest.json`. Then run **Plugins → Development → GSA Build Kit Export**:
 
