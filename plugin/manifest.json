@@ -6,6 +6,7 @@
   "ui": "ui.html",
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
+  "permissions": ["teamlibrary"],
   "networkAccess": {
     "allowedDomains": ["*"],
     "reasoning": "Uploads exported component PNGs (per theme) to a user-configured GSA Build Kit server."

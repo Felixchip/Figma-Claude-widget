@@ -105,7 +105,7 @@
         log('  · ' + l.libraryName + ' / ' + l.name + (l.modes.length ? ' → ' + l.modes.map(function (m) { return m.name; }).join(', ') : ''));
       });
     } else {
-      log('No library variable collections visible.');
+      log('No library variable collections visible.' + (info.libraryError ? ' (' + info.libraryError + ')' : ''));
     }
     document.getElementById('meta').innerHTML =
       '<b>' + info.fileName + '</b><br>' + info.variantCount + ' variants · ' +
