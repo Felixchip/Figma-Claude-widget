@@ -14,7 +14,6 @@ const EXPORT_SCALE = 2;
 
 type Target = { node: ComponentNode; name: string; group: string };
 
-let collections: VariableCollection[] = [];
 let allCollections: VariableCollection[] = [];
 let pendingAck: (() => void) | null = null;
 let cancelled = false;
@@ -72,37 +71,58 @@ async function collectTargets(): Promise<Target[]> {
   return targets;
 }
 
+type ThemeSource = {
+  kind: "local" | "library";
+  ref: string; // local collection id, or library collection key
+  label: string;
+  modes: { modeId: string; name: string }[];
+  error?: string;
+};
+
+// Resolve a library collection to a real VariableCollection so we can read its
+// modes and set them on nodes. Figma only exposes the collection object once one
+// of its variables is imported into the file (idempotent when already in use).
+async function probeLibraryCollection(key: string): Promise<{ id: string; name: string; modes: { modeId: string; name: string }[] }> {
+  const vars = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(key);
+  if (!vars.length) throw new Error("no variables in this collection");
+  const imported = await figma.variables.importVariableByKeyAsync(vars[0].key);
+  const coll = await figma.variables.getVariableCollectionByIdAsync(imported.variableCollectionId);
+  if (!coll) throw new Error("could not load the collection");
+  return { id: coll.id, name: coll.name, modes: (coll.modes ?? []).map((m) => ({ modeId: m.modeId, name: m.name })) };
+}
+
 async function fileInfo() {
   allCollections = await figma.variables.getLocalVariableCollectionsAsync();
-  collections = allCollections.filter((c) => (c.modes ?? []).length >= 2);
-  let library: { name: string; key: string; libraryName: string; modes: { modeId: string; name: string }[] }[] = [];
+
+  const sources: ThemeSource[] = allCollections.map((c) => ({
+    kind: "local",
+    ref: c.id,
+    label: `${c.name} (this file)`,
+    modes: (c.modes ?? []).map((m) => ({ modeId: m.modeId, name: m.name })),
+  }));
+
   let libraryError = "";
   try {
     const libs = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
     for (const l of libs) {
-      library.push({
-        name: l.name,
-        key: l.key,
-        libraryName: l.libraryName,
-        modes: ((l as any).modes ?? []).map((m: any) => ({ modeId: m.modeId, name: m.name })),
-      });
+      const label = `${l.libraryName} / ${l.name}`;
+      try {
+        const probed = await probeLibraryCollection(l.key);
+        sources.push({ kind: "library", ref: l.key, label, modes: probed.modes });
+      } catch (err) {
+        sources.push({ kind: "library", ref: l.key, label, modes: [], error: (err as Error).message });
+      }
     }
   } catch (err) {
     libraryError = (err as Error).message;
   }
+
   const targets = await collectTargets();
   return {
     fileName: figma.root.name,
     fileKey: (figma.fileKey as string) || "",
     variantCount: targets.length,
-    usableCount: collections.length,
-    collections: allCollections.map((c) => ({
-      id: c.id,
-      name: c.name,
-      remote: !!c.remote,
-      modes: (c.modes ?? []).map((m) => ({ modeId: m.modeId, name: m.name })),
-    })),
-    library,
+    sources,
     libraryError,
   };
 }
@@ -141,10 +161,17 @@ function sendBatch(payload: Record<string, unknown>): Promise<void> {
 async function runExport(opts: {
   server: string;
   token: string;
-  collectionId: string;
+  kind: "local" | "library";
+  ref: string;
   modeIds: string[];
 }) {
-  const collection = allCollections.find((c) => c.id === opts.collectionId) || collections.find((c) => c.id === opts.collectionId);
+  let collection: VariableCollection | null = null;
+  if (opts.kind === "local") {
+    collection = allCollections.find((c) => c.id === opts.ref) ?? null;
+  } else {
+    const probed = await probeLibraryCollection(opts.ref);
+    collection = await figma.variables.getVariableCollectionByIdAsync(probed.id);
+  }
   if (!collection) throw new Error("Theme collection not found. Click Detect and pick one.");
   const modes = collection.modes ?? [];
 

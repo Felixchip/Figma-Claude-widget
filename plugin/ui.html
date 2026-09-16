@@ -77,55 +77,48 @@
     var modesEl = document.getElementById('modes');
     if (!info) return;
     document.getElementById('setup').classList.remove('hidden');
-    if (!info.collections.length) {
-      sel.innerHTML = '<option value="">no variable collections found</option>';
+    var usable = (info.sources || []).filter(function (s) { return s.modes.length >= 2; });
+    if (!usable.length) {
+      sel.innerHTML = '<option value="">no collection with 2+ modes</option>';
       modesEl.innerHTML = '';
       document.getElementById('meta').innerHTML = '<b>' + info.fileName + '</b><br>' +
-        info.variantCount + ' variants. No local variable collections in this file — the theme modes may live in a separate library file.';
-      log('No local variable collections found.');
+        info.variantCount + ' variants. No collection with 2+ modes was found.';
+      log('No collection with 2+ modes found.');
+      (info.sources || []).forEach(function (s) {
+        log('  · ' + s.label + ' → ' + (s.modes.map(function (m) { return m.name; }).join(', ') || '—') + (s.error ? ' (' + s.error + ')' : ''));
+      });
+      if (info.libraryError) log('Library error: ' + info.libraryError);
       return;
     }
-    sel.innerHTML = info.collections.map(function (c) {
-      var tag = c.modes.length + ' mode' + (c.modes.length === 1 ? '' : 's') + (c.modes.length < 2 ? ' — not usable' : '');
-      return '<option value="' + c.id + '">' + c.name + ' (' + tag + ')</option>';
+    sel.innerHTML = usable.map(function (s, i) {
+      return '<option value="' + i + '">' + s.label + ' — ' + s.modes.map(function (m) { return m.name; }).join(' / ') + '</option>';
     }).join('');
-    var preferred = info.collections.find(function (c) {
-      return c.modes.some(function (m) { return /^light$/i.test(m.name); }) &&
-             c.modes.some(function (m) { return /^dark$/i.test(m.name); });
-    }) || info.collections.find(function (c) { return c.modes.length >= 2; });
-    if (preferred) sel.value = preferred.id;
-    renderModes();
-    log('Collections found:');
-    info.collections.forEach(function (c) {
-      log('  · ' + c.name + ' → ' + c.modes.map(function (m) { return m.name; }).join(', '));
+    var preferred = usable.findIndex(function (s) {
+      return s.modes.some(function (m) { return /^light$/i.test(m.name); }) &&
+             s.modes.some(function (m) { return /^dark$/i.test(m.name); });
     });
-    if (info.library && info.library.length) {
-      log('Library collections visible:');
-      info.library.forEach(function (l) {
-        log('  · ' + l.libraryName + ' / ' + l.name + (l.modes.length ? ' → ' + l.modes.map(function (m) { return m.name; }).join(', ') : ''));
-      });
-    } else {
-      log('No library variable collections visible.' + (info.libraryError ? ' (' + info.libraryError + ')' : ''));
-    }
+    sel.value = String(preferred >= 0 ? preferred : 0);
+    window.__usable = usable;
+    renderModes();
+    log('Theme sources:');
+    usable.forEach(function (s) {
+      log('  · ' + s.label + ' → ' + s.modes.map(function (m) { return m.name; }).join(', '));
+    });
     document.getElementById('meta').innerHTML =
       '<b>' + info.fileName + '</b><br>' + info.variantCount + ' variants · ' +
-      info.usableCount + ' theme collection(s)';
+      usable.length + ' collection(s) with themes';
   }
 
-  function currentCollection() {
-    var id = document.getElementById('collection').value;
-    return (info.collections || []).find(function (c) { return c.id === id; });
+  function currentSource() {
+    var idx = document.getElementById('collection').value;
+    return (window.__usable || [])[Number(idx)];
   }
 
   function renderModes() {
-    var c = currentCollection();
+    var s = currentSource();
     var el = document.getElementById('modes');
-    if (!c) { el.innerHTML = ''; return; }
-    if (c.modes.length < 2) {
-      el.innerHTML = '<span style="color:var(--figma-color-text-secondary)">This collection has only one mode — pick another, or add a Light/Dark mode in Figma.</span>';
-      return;
-    }
-    el.innerHTML = c.modes.map(function (m) {
+    if (!s) { el.innerHTML = ''; return; }
+    el.innerHTML = s.modes.map(function (m) {
       var checked = /^light$|^dark$/i.test(m.name) ? ' checked' : '';
       return '<label><input type="checkbox" value="' + m.modeId + '"' + checked + '> ' + m.name + '</label>';
     }).join('');
@@ -142,17 +135,17 @@
   document.getElementById('go').addEventListener('click', function () {
     var server = document.getElementById('server').value.trim().replace(/\/$/, '');
     var token = document.getElementById('token').value.trim();
-    var c = currentCollection();
+    var s = currentSource();
     var modeIds = Array.prototype.slice
       .call(document.querySelectorAll('#modes input:checked'))
       .map(function (i) { return i.value; });
     if (!server) return log('Enter a server URL.');
     if (!token) return log('Enter your admin token.');
-    if (!c) return log('No theme collection found.');
+    if (!s) return log('No theme collection found.');
     if (!modeIds.length) return log('Pick at least one theme.');
     document.getElementById('go').disabled = true;
-    log('Starting export of ' + modeIds.length + ' theme(s)…');
-    post({ type: 'export', opts: { server: server, token: token, collectionId: c.id, modeIds: modeIds } });
+    log('Starting export of ' + modeIds.length + ' theme(s) from ' + s.label + '…');
+    post({ type: 'export', opts: { server: server, token: token, kind: s.kind, ref: s.ref, modeIds: modeIds } });
   });
 
   window.onmessage = async function (event) {
