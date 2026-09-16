@@ -478,32 +478,21 @@ const serverUrl = mcpUrl + "/mcp";
 const AGENTS = {
   "chatgpt-codex": {
     label: "ChatGPT / Codex",
-    hint: "ChatGPT: Settings → Plugins → MCP Servers → Add server → Streamable HTTP, paste the URL. (If it's not there, turn on Developer mode under Settings → Security and login.) On the web, add it at chatgpt.com/plugins. Codex CLI: run the command, or add the TOML to ~/.codex/config.toml.",
-    code: `codex mcp add gsa-build-kit --url "${serverUrl}"
-
-# ~/.codex/config.toml (ChatGPT desktop, Codex CLI and IDE share this):
-[mcp_servers.gsa-build-kit]
-url = "${serverUrl}"
-
-[mcp_servers.figma]
-url = "https://mcp.figma.com/mcp"`
+    hint: "ChatGPT: Settings → Plugins → MCP Servers → Add server → Streamable HTTP, paste the URL. Codex: add the TOML to ~/.codex/config.toml (or run codex mcp add).",
+    code: `[mcp_servers.gsa-build-kit]
+url = "${serverUrl}"`
   },
   "claude-code": {
     label: "Claude Code",
-    hint: "Run in your terminal, then check it with /mcp or claude mcp list. Add --scope user to enable it in every project (default is this project only).",
-    code: `claude mcp add --transport http gsa-build-kit ${serverUrl}
-claude mcp add --transport http figma https://mcp.figma.com/mcp
-
-# every project:
-claude mcp add --transport http --scope user gsa-build-kit ${serverUrl}`
+    hint: "Run in your terminal, then check it with /mcp or claude mcp list. Add --scope user to enable it in every project. To let the agent design inside Figma, also add Figma's MCP: claude mcp add --transport http figma https://mcp.figma.com/mcp",
+    code: `claude mcp add --transport http gsa-build-kit ${serverUrl}`
   },
   "cursor": {
     label: "Cursor",
-    hint: "Customize → MCP, or add to ~/.cursor/mcp.json (global) or .cursor/mcp.json (project).",
+    hint: "Customize → MCP, or add to ~/.cursor/mcp.json (global) or .cursor/mcp.json (project). To design inside Figma, add Figma's MCP too (url https://mcp.figma.com/mcp).",
     code: `{
   "mcpServers": {
-    "gsa-build-kit": { "url": "${serverUrl}" },
-    "figma": { "url": "https://mcp.figma.com/mcp" }
+    "gsa-build-kit": { "url": "${serverUrl}" }
   }
 }`
   },
