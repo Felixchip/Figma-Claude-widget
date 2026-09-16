@@ -420,32 +420,43 @@ const serverUrl = mcpUrl + "/mcp";
 const AGENTS = {
   "chatgpt-codex": {
     label: "ChatGPT / Codex",
-    hint: "ChatGPT desktop app: Settings → MCP servers → Add server → Streamable HTTP, paste the URL. Codex CLI/IDE: add the TOML to ~/.codex/config.toml (or .codex/config.toml).",
-    code: `[mcp_servers.gsa-build-kit]
-url = "${serverUrl}"`
+    hint: "ChatGPT desktop: Settings → MCP servers → Add server → choose Streamable HTTP, paste the URL, then Restart. Codex CLI: run the command, or add the TOML to ~/.codex/config.toml. Add Figma's MCP too if you want designs created inside Figma.",
+    code: `codex mcp add gsa-build-kit --url "${serverUrl}"
+
+# ~/.codex/config.toml (ChatGPT desktop, Codex CLI and IDE share this):
+[mcp_servers.gsa-build-kit]
+url = "${serverUrl}"
+
+[mcp_servers.figma]
+url = "https://mcp.figma.com/mcp"`
   },
   "claude-code": {
     label: "Claude Code",
-    hint: "Run this in your terminal. Use --scope user to enable it across all projects.",
-    code: `claude mcp add --transport http gsa-build-kit ${serverUrl}`
+    hint: "Run in your terminal, then check it with /mcp or claude mcp list. Add --scope user to enable it in every project (default is this project only).",
+    code: `claude mcp add --transport http gsa-build-kit ${serverUrl}
+claude mcp add --transport http figma https://mcp.figma.com/mcp
+
+# every project:
+claude mcp add --transport http --scope user gsa-build-kit ${serverUrl}`
   },
   "cursor": {
     label: "Cursor",
-    hint: "Add to ~/.cursor/mcp.json (global) or .cursor/mcp.json (project).",
+    hint: "Customize → MCP, or add to ~/.cursor/mcp.json (global) or .cursor/mcp.json (project).",
     code: `{
   "mcpServers": {
-    "gsa-build-kit": { "url": "${serverUrl}" }
+    "gsa-build-kit": { "url": "${serverUrl}" },
+    "figma": { "url": "https://mcp.figma.com/mcp" }
   }
 }`
   },
   "claude": {
-    label: "Claude",
-    hint: "In the Claude app (claude.ai or Claude Desktop): Settings → Connectors → Add custom connector, then paste the URL. (For the CLI, use the Claude Code option.)",
+    label: "Claude (app)",
+    hint: "claude.ai or Claude Desktop: Settings → Connectors → Add custom connector, then paste the URL. Requires a paid plan. For the terminal, use the Claude Code option instead.",
     code: `${serverUrl}`
   },
   "deepseek": {
     label: "DeepSeek",
-    hint: "DeepSeek has no first-party MCP client yet. Use an MCP-capable client (Cline, Continue, Roo Code) and add this server there.",
+    hint: "DeepSeek has no first-party MCP client. Use an MCP-capable client with DeepSeek as the model — Cline, Roo Code, Continue, or Cherry Studio — and add this server there.",
     code: `{
   "mcpServers": {
     "gsa-build-kit": { "url": "${serverUrl}" }

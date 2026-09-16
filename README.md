@@ -120,22 +120,61 @@ The MCP is named `gsa-build-kit`. Add it (plus Figma's official MCP) so the agen
 Claude Code:
 
 ```sh
-claude mcp add --transport http figma https://mcp.figma.com/mcp
 claude mcp add --transport http gsa-build-kit https://<your-app>.up.railway.app/mcp
+claude mcp add --transport http figma https://mcp.figma.com/mcp
 ```
+
+Add `--scope user` to make a server available in every project (the default is
+current-project only). Check the result with `/mcp` or `claude mcp list`. In a
+`.mcp.json` entry, remote servers need an explicit `"type": "http"` — an entry
+with a `url` but no `type` is read as a stdio server and skipped.
 
 ### ChatGPT / Codex connector
 
-The `gsa-build-kit` MCP is a Streamable HTTP server at `https://<your-app>.up.railway.app/mcp` and works as an open ChatGPT connector (no per-user login). All tools are read-only.
+The `gsa-build-kit` MCP is a **stateless** Streamable HTTP server at
+`https://<your-app>.up.railway.app/mcp` and works as an open connector (no per-user
+login). All tools are read-only.
 
-1. In ChatGPT, enable **Developer mode** (Settings → Security and login).
-2. Go to ChatGPT Plugins (or the Codex connector config), add a new MCP connector, and paste the server URL:
-   `https://<your-app>.up.railway.app/mcp`
-3. The connector exposes the `gsa-build-kit` tools (prefixed `gsa_build_kit_*`): list rules, Figma library/components/tokens, repo components, and specs.
+1. **ChatGPT desktop app**: Settings → **MCP servers** → **Add server** → name it,
+   choose **Streamable HTTP**, paste the URL, **Save**, then **Restart**.
+2. **Codex CLI**: `codex mcp add gsa-build-kit --url https://<your-app>.up.railway.app/mcp`
+3. **Codex config file** (`~/.codex/config.toml`, shared by the desktop app, CLI and
+   IDE extension):
+
+```toml
+[mcp_servers.gsa-build-kit]
+url = "https://<your-app>.up.railway.app/mcp"
+```
+
+ChatGPT **web** doesn't read local Codex config — it uses plugins/connectors
+installed in the workspace.
 
 Design/write flow for ChatGPT users:
 - The Build Kit connector supplies the components/tokens/rules (read-only, shared).
 - Writing into a user's own Figma file is done through Figma's official MCP (https://mcp.figma.com/mcp), which ChatGPT connects separately with the user's own Figma account.
+
+### Claude app (claude.ai / Claude Desktop)
+
+Settings → **Connectors** → **Add custom connector**, then paste the server URL.
+Custom connectors require a paid plan. For the terminal, use Claude Code instead.
+
+### Cursor
+
+`Customize → MCP`, or add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json`
+(project). Remote servers are configured with a `url`:
+
+```json
+{
+  "mcpServers": {
+    "gsa-build-kit": { "url": "https://<your-app>.up.railway.app/mcp" }
+  }
+}
+```
+
+### DeepSeek
+
+DeepSeek has no first-party MCP client. Use an MCP-capable client with DeepSeek as
+the model — Cline, Roo Code, Continue, or Cherry Studio — and add this server there.
 
 Suggested prompt:
 
