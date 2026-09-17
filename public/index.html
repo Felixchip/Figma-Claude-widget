@@ -571,12 +571,9 @@ async function checkStatus() {
     const st = document.getElementById("status");
     st.classList.toggle("off", !d.configured);
     let parts = [];
-    if (d.configured) parts.push(`repo ${d.repo}`);
+    if (d.configured) parts.push(`Repo ${d.repo}`);
     if (d.figma?.connected) parts.push(`Figma: ${d.figma.fileName || d.figma.fileKey || "connected"}`);
-    if (d.library?.total) {
-      const themes = (d.library.themes || []).map(t => t.theme || "default");
-      parts.push(`library: ${d.library.total} images${themes.length > 1 ? ` (${themes.join(", ")})` : ""}`);
-    }
+    if (d.library?.total) parts.push(`Library: ${d.library.total} images`);
     document.getElementById("status-text").textContent = parts.length
       ? `Server ready · ${parts.join(" · ")}`
       : `Server up, but no repo configured (set GITHUB_REPO)`;
