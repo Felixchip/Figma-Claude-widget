@@ -93,7 +93,16 @@
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
   .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .lib-toolbar input[type="search"] { flex: 1; min-width: 200px; }
-  .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 16px; }
+  .lib-grid { margin-top: 16px; }
+  .lib-group { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden; margin-bottom: 10px; }
+  .lib-group-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: none; border: none; border-radius: 0; color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+  .lib-group-head:hover { background: var(--fill1); }
+  .lib-group-chev { display: inline-flex; color: var(--muted); transition: transform .18s ease; }
+  .lib-group.open .lib-group-chev { transform: rotate(90deg); }
+  .lib-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-group-count { flex: none; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .lib-group-body { display: none; padding: 16px; border-top: 1px solid var(--border); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  .lib-group.open .lib-group-body { display: grid; }
   .lib-item { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
   .lib-item:hover { border-color: var(--outline3); box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
   .lib-thumb { background: var(--fill1); display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 120px; }
@@ -268,6 +277,8 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <input id="lib-search" type="search" placeholder="Search components…" autocomplete="off">
         <select id="lib-theme" style="max-width:170px"></select>
         <span id="lib-count" style="font-size:13px;color:var(--muted)"></span>
+        <button id="lib-expand" class="secondary">Expand all</button>
+        <button id="lib-collapse" class="secondary">Collapse all</button>
         <button id="btn-render">Render / refresh</button>
       </div>
       <label style="margin-top:16px">Admin token <span style="color:var(--muted);font-weight:400">(needed to render)</span></label>
@@ -1273,20 +1284,65 @@ function renderLibrary() {
     if (theme !== "__all" && (i.theme || "") !== theme) return false;
     return !q || i.name.toLowerCase().includes(q) || i.group.toLowerCase().includes(q);
   });
-  count.textContent = `${rows.length} of ${libraryImages.length} images`;
+
+  // Group by component, sorted by name.
+  const groups = new Map();
+  for (const i of rows) {
+    const g = i.group || i.name;
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(i);
+  }
+  const names = [...groups.keys()].sort((a, b) => a.localeCompare(b));
+  count.textContent = `${rows.length} of ${libraryImages.length} images · ${names.length} components`;
+
   if (!rows.length) {
     grid.innerHTML = '<p style="color:var(--muted)">No components match your filters.</p>';
     return;
   }
-  grid.innerHTML = rows.map(i => `
-    <div class="lib-item">
-      <div class="lib-thumb"><img loading="lazy" alt="${esc(i.name)}" src="${imageSrc(i)}"></div>
-      <div class="lib-meta">
-        <div class="lib-name" title="${esc(i.name)}">${esc(i.group)}${i.theme ? ` <span class="lib-badge">${esc(i.theme)}</span>` : ""}</div>
-        <div class="lib-sub">${i.name !== i.group ? esc(i.name) + " · " : ""}${fmtBytes(i.bytes)}</div>
-      </div>
-    </div>`).join("");
+
+  grid.innerHTML = names.map(name => {
+    const items = groups.get(name);
+    const open = q ? true : groupIsOpen(name, items.length);
+    return `
+      <section class="lib-group${open ? " open" : ""}">
+        <button class="lib-group-head" data-group="${esc(name)}" aria-expanded="${open}">
+          <span class="lib-group-chev"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="lib-group-name">${esc(name)}</span>
+          <span class="lib-group-count">${items.length}</span>
+        </button>
+        <div class="lib-group-body">
+          ${items.map(i => `
+            <div class="lib-item">
+              <div class="lib-thumb"><img loading="lazy" alt="${esc(i.name)}" src="${imageSrc(i)}"></div>
+              <div class="lib-meta">
+                <div class="lib-name" title="${esc(i.name)}">${esc(i.name)}${i.theme ? ` <span class="lib-badge">${esc(i.theme)}</span>` : ""}</div>
+                <div class="lib-sub">${fmtBytes(i.bytes)}</div>
+              </div>
+            </div>`).join("")}
+        </div>
+      </section>`;
+  }).join("");
 }
+
+// Group open/closed state: default open for small groups, collapsed for large.
+const groupExpanded = new Map();
+function groupIsOpen(name, size) {
+  return groupExpanded.has(name) ? groupExpanded.get(name) : size <= 6;
+}
+document.getElementById("lib-grid").addEventListener("click", (e) => {
+  const head = e.target.closest(".lib-group-head");
+  if (!head) return;
+  const section = head.parentElement;
+  const open = section.classList.toggle("open");
+  head.setAttribute("aria-expanded", String(open));
+  groupExpanded.set(head.dataset.group, open);
+});
+function setAllGroups(open) {
+  for (const name of new Set(libraryImages.map(i => i.group || i.name))) groupExpanded.set(name, open);
+  renderLibrary();
+}
+document.getElementById("lib-expand").addEventListener("click", () => setAllGroups(true));
+document.getElementById("lib-collapse").addEventListener("click", () => setAllGroups(false));
 
 document.getElementById("lib-search").addEventListener("input", renderLibrary);
 document.getElementById("lib-theme").addEventListener("change", renderLibrary);
