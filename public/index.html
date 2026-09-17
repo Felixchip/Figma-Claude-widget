@@ -84,14 +84,10 @@
   pre code { background: none; padding: 0; color: inherit; }
   .codewindow { background: var(--secondary2); border: 1px solid var(--outline4); border-radius: var(--radius); overflow: hidden; margin: 0; }
   .codewindow .bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--secondary3); border-bottom: 1px solid var(--outline4); }
-  .codewindow .bar .dots { display: flex; gap: 6px; margin-right: 8px; }
-  .codewindow .bar .dots i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
-  .codewindow .bar .dots i:nth-child(1) { background: #FF5F57; }
-  .codewindow .bar .dots i:nth-child(2) { background: #FEBC2E; }
-  .codewindow .bar .dots i:nth-child(3) { background: #28C840; }
-  .codewindow .bar .filename { color: #E6E9F0; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: 0.9; }
-  .codewindow .bar .copy { margin-left: auto; background: none; border: none; color: #E6E9F0; font-size: 12px; padding: 4px 10px; cursor: pointer; opacity: 0.8; }
-  .codewindow .bar .copy:hover { opacity: 1; }
+  .codewindow .bar .filename { color: #E6E9F0; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: 0.75; }
+  .codewindow .bar .copy { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; background: none; border: none; color: #E6E9F0; font-size: 12px; padding: 4px 8px; border-radius: 6px; cursor: pointer; opacity: 0.8; }
+  .codewindow .bar .copy:hover { opacity: 1; background: rgba(255,255,255,0.08); }
+  .codewindow .bar .copy svg { display: block; }
   .codewindow .body { padding: 16px; overflow-x: auto; font-size: 13px; color: #E6E9F0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
@@ -239,9 +235,14 @@
       <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:16px"></p>
       <div class="codewindow">
         <div class="bar">
-          <span class="dots"><i></i><i></i><i></i></span>
           <span class="filename">mcp.json</span>
-          <button class="copy" id="btn-copy">Copy config</button>
+          <button class="copy" id="btn-copy">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M10.25 5.75V4.25A1.5 1.5 0 0 0 8.75 2.75H4.25A1.5 1.5 0 0 0 2.75 4.25v4.5a1.5 1.5 0 0 0 1.5 1.5h1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Copy config
+          </button>
         </div>
         <div class="body" id="agent-code"></div>
       </div>
