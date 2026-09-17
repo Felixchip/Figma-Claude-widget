@@ -1304,7 +1304,7 @@ function renderLibrary() {
 
   grid.innerHTML = names.map(name => {
     const items = groups.get(name);
-    const open = q ? true : groupIsOpen(name, items.length);
+    const open = q ? true : groupIsOpen(name);
     return `
       <section class="lib-group${open ? " open" : ""}">
         <button class="lib-group-head" data-group="${esc(name)}" aria-expanded="${open}">
@@ -1326,10 +1326,10 @@ function renderLibrary() {
   }).join("");
 }
 
-// Group open/closed state: default open for small groups, collapsed for large.
+// Group open/closed state: everything collapsed until the user opens it.
 const groupExpanded = new Map();
-function groupIsOpen(name, size) {
-  return groupExpanded.has(name) ? groupExpanded.get(name) : size <= 6;
+function groupIsOpen(name) {
+  return groupExpanded.get(name) === true;
 }
 document.getElementById("lib-grid").addEventListener("click", (e) => {
   const head = e.target.closest(".lib-group-head");
