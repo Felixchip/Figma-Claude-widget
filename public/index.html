@@ -91,26 +91,36 @@
   .codewindow .body { padding: 16px; overflow-x: auto; font-size: 13px; color: #E6E9F0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
-  .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .lib-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: 720px; }
   .lib-toolbar input[type="search"] { flex: 1; min-width: 200px; }
-  .lib-grid { margin-top: 16px; }
-  .lib-group { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden; margin-bottom: 10px; }
-  .lib-group-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: none; border: none; border-radius: 0; color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
-  .lib-group-head:hover { background: var(--fill1); }
-  .lib-group-chev { display: inline-flex; color: var(--muted); transition: transform .18s ease; }
+  .lib-count { margin-top: 12px; font-size: 12px; color: var(--content4); }
+  .lib-admin { margin: 20px 0 8px; max-width: 720px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .lib-admin summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); list-style: none; }
+  .lib-admin summary::-webkit-details-marker { display: none; }
+  .lib-admin summary::before { content: "▸ "; color: var(--outline3); }
+  .lib-admin[open] summary::before { content: "▾ "; }
+  .lib-admin label { margin-top: 14px; }
+  .lib-admin .lib-row { display: flex; gap: 10px; align-items: center; }
+
+  .lib-grid { margin-top: 28px; }
+  .lib-group { margin-bottom: 36px; }
+  .lib-group-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0 0 8px; background: none; border: none; border-radius: 0; border-bottom: 1px solid var(--border); color: var(--text); cursor: pointer; text-align: left; }
+  .lib-group-head:hover { border-bottom-color: var(--outline3); }
+  .lib-group-chev { display: inline-flex; color: var(--outline3); transition: transform .18s ease; }
   .lib-group.open .lib-group-chev { transform: rotate(90deg); }
-  .lib-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lib-group-count { flex: none; font-size: 12px; font-weight: 500; color: var(--muted); }
-  .lib-group-body { display: none; padding: 16px; border-top: 1px solid var(--border); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  .lib-group-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .lib-group-count { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--content4); }
+  .lib-group-body { display: none; padding-top: 20px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 22px 18px; }
   .lib-group.open .lib-group-body { display: grid; }
-  .lib-item { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
-  .lib-item:hover { border-color: var(--outline3); box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
-  .lib-thumb { background: var(--fill1); display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 120px; }
-  .lib-thumb img { max-width: 100%; max-height: 140px; object-fit: contain; display: block; }
-  .lib-meta { padding: 10px 12px; border-top: 1px solid var(--border); }
-  .lib-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lib-badge { display: inline-block; font-size: 10px; font-weight: 600; color: var(--primary2); background: var(--primary1); border-radius: 999px; padding: 1px 7px; vertical-align: middle; }
-  .lib-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .lib-item { display: flex; flex-direction: column; }
+  .lib-thumb { background: var(--fill1); border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 104px; transition: background .15s ease; }
+  .lib-item:hover .lib-thumb { background: var(--fill3); }
+  .lib-thumb img { max-width: 100%; max-height: 96px; object-fit: contain; display: block; }
+  .lib-meta { padding-top: 8px; }
+  .lib-name { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-sub { font-size: 11px; color: var(--content4); margin-top: 1px; }
+  .lib-badge { display: inline-block; font-size: 10px; font-weight: 600; color: var(--primary2); background: var(--primary1); border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
   #library .lib-grid { animation: panelIn .5s cubic-bezier(.22,.61,.36,1) both; }
   .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 100; animation: fadeIn .15s ease; }
   .modal { background: var(--panel); border-radius: var(--radius); width: 100%; max-width: 640px; max-height: 85vh; overflow: auto; padding: 0; box-shadow: 0 24px 60px rgba(0,0,0,0.25); animation: panelIn .25s cubic-bezier(.22,.61,.36,1) both; }
@@ -270,26 +280,26 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
 
   <section id="library" class="hidden">
     <h2>Component library</h2>
-    <p>Rendered images of the components agents can use. Agents fetch these instantly, so they never re-render from Figma.</p>
+    <p>Every component and variant, rendered from Figma. Agents fetch these instantly.</p>
 
-    <div class="card">
-      <div class="lib-toolbar">
-        <input id="lib-search" type="search" placeholder="Search components…" autocomplete="off">
-        <select id="lib-theme" style="max-width:170px"></select>
-        <span id="lib-count" style="font-size:13px;color:var(--muted)"></span>
-        <button id="lib-expand" class="secondary">Expand all</button>
-        <button id="lib-collapse" class="secondary">Collapse all</button>
-        <button id="btn-render">Render / refresh</button>
-      </div>
-      <label style="margin-top:16px">Admin token <span style="color:var(--muted);font-weight:400">(needed to render)</span></label>
+    <div class="lib-toolbar">
+      <input id="lib-search" type="search" placeholder="Search components…" autocomplete="off">
+      <select id="lib-theme" style="max-width:160px"></select>
+      <button id="btn-render" class="secondary">Refresh</button>
+    </div>
+    <div id="lib-count" class="lib-count"></div>
+
+    <details class="lib-admin">
+      <summary>Admin</summary>
+      <label for="library-admin-token">Admin token</label>
       <input id="library-admin-token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off">
-      <label style="margin-top:16px">Preferred theme for agents</label>
-      <div style="display:flex;gap:10px;align-items:center">
+      <label for="lib-preferred">Preferred theme for agents</label>
+      <div class="lib-row">
         <select id="lib-preferred" style="max-width:220px"></select>
         <span id="lib-preferred-status" style="font-size:12px;color:var(--muted)"></span>
       </div>
-      <p id="lib-status" style="font-size:13px;color:var(--muted);margin:8px 0 0"></p>
-    </div>
+      <p id="lib-status" style="font-size:13px;color:var(--muted);margin:10px 0 0"></p>
+    </details>
 
     <div id="lib-grid" class="lib-grid"></div>
   </section>
@@ -1337,12 +1347,6 @@ document.getElementById("lib-grid").addEventListener("click", (e) => {
   head.setAttribute("aria-expanded", String(open));
   groupExpanded.set(head.dataset.group, open);
 });
-function setAllGroups(open) {
-  for (const name of new Set(libraryImages.map(i => i.group || i.name))) groupExpanded.set(name, open);
-  renderLibrary();
-}
-document.getElementById("lib-expand").addEventListener("click", () => setAllGroups(true));
-document.getElementById("lib-collapse").addEventListener("click", () => setAllGroups(false));
 
 document.getElementById("lib-search").addEventListener("input", renderLibrary);
 document.getElementById("lib-theme").addEventListener("change", renderLibrary);
