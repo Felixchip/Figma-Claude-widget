@@ -245,7 +245,7 @@
         </button>
         <div class="dropdown-menu hidden" id="agent-menu" role="listbox"></div>
       </div>
-      <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:16px"></p>
+      <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:16px;white-space:pre-line"></p>
       <div class="codewindow">
         <div class="bar">
           <span class="filename">mcp.json</span>
@@ -492,7 +492,7 @@ const serverUrl = mcpUrl + "/mcp";
 const AGENTS = {
   "chatgpt-codex": {
     label: "ChatGPT / Codex",
-    hint: "ChatGPT: Settings → Plugins → MCP Servers → Add server → Streamable HTTP, paste the URL. Codex: add the TOML to ~/.codex/config.toml (or run codex mcp add).",
+    hint: "ChatGPT: Settings → Plugins → MCP Servers → Add server → Streamable HTTP, paste the URL.\nCodex: add the TOML to ~/.codex/config.toml, or run codex mcp add.",
     code: `[mcp_servers.gsa-build-kit]
 url = "${serverUrl}"`
   },
