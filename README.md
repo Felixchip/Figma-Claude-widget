@@ -208,6 +208,13 @@ restart the ChatGPT desktop app, open the **Plugins** directory, choose the
 **GSA Build Kit (local)** source, and install it. See `chatgpt-plugin/README.md`
 for the personal-marketplace alternative and the publishing steps.
 
+The skill is also **served by the MCP server**: it advertises OpenAI's
+`io.modelcontextprotocol/skills` extension and implements `skills/list`,
+`skills/get` and `resources/read`, reading the files from
+`chatgpt-plugin/skills/`. So the skill always travels with the server, and
+**Scan Tools** imports it into the plugin draft at submission. That folder is
+the single source of truth for the skill.
+
 ## Figma widget
 
 ```sh

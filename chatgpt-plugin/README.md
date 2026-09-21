@@ -19,6 +19,19 @@ chatgpt-plugin/
 is the deployed Build Kit at `https://dsgn.up.railway.app/mcp`; change the URL
 in `mcp.json` if you deploy elsewhere.
 
+## The skill is served by the MCP
+
+The skill is not only bundled here: the Build Kit MCP serves it too, so it
+always travels with the server. The server advertises OpenAI's
+`io.modelcontextprotocol/skills` extension and implements `skills/list`,
+`skills/get` and `resources/read`, reading the files from
+`chatgpt-plugin/skills/` (this folder is the single source of truth, so there is
+nothing to keep in sync).
+
+During plugin submission, **Scan Tools** imports a static snapshot of the
+skills from the server into the draft. After changing a skill, run **Scan
+Tools** again and submit a new plugin version.
+
 ## Test it locally
 
 The repo ships a marketplace at `.agents/plugins/marketplace.json` that points

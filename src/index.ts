@@ -45,6 +45,7 @@ import {
   resolveFigmaWithName,
   FIGMA_TOOL_DEFS,
 } from "./figmaTools.js";
+import { loadSkills, skillCatalogEntry } from "./skills.js";
 
 // Ensure a global `crypto` exists (Node < 19 and some runtimes lack it). The
 // MCP SDK references the global `crypto` for session/stream ids.
@@ -58,6 +59,9 @@ const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const store: SpecStore = createStore();
 // Stamped when this process starts, so /api/status reveals whether a deploy took.
 const BUILD_TIME = new Date().toISOString();
+
+// Skills are loaded once and served by every MCP session.
+const SKILLS = loadSkills();
 const githubCfg: GitHubConfig = loadConfig();
 
 const specInputSchema = z.object({
@@ -335,6 +339,45 @@ function createMcpServer(): McpServer {
         "when the user asked for an image.",
     }
   );
+
+  // --- Skills (io.modelcontextprotocol/skills) ------------------------------
+  // Serve the skill files so they always travel with the MCP: OpenAI imports a
+  // static snapshot of these into the plugin draft during submission (Scan Tools).
+  if (SKILLS.length) {
+    const low = server.server;
+    low.registerCapabilities({ extensions: { "io.modelcontextprotocol/skills": {} } } as any);
+
+    for (const skill of SKILLS) {
+      for (const res of skill.resources) {
+        server.registerResource(
+          res.uri,
+          res.uri,
+          { description: `Skill resource (${skill.name})`, mimeType: res.mimeType },
+          async () => ({ contents: [{ uri: res.uri, mimeType: res.mimeType, text: res.text }] })
+        );
+      }
+    }
+
+    low.setRequestHandler(
+      z.object({
+        method: z.literal("skills/list"),
+        params: z.object({ cursor: z.string().optional() }).optional(),
+      }),
+      async () => ({ skills: SKILLS.map(skillCatalogEntry) })
+    );
+
+    low.setRequestHandler(
+      z.object({
+        method: z.literal("skills/get"),
+        params: z.object({ uri: z.string() }),
+      }),
+      async (req: { params: { uri: string } }) => {
+        const skill = SKILLS.find((s) => s.uri === req.params.uri);
+        if (!skill) throw new Error(`Unknown skill: ${req.params.uri}`);
+        return { skill: skillCatalogEntry(skill) };
+      }
+    );
+  }
 
   // --- Rules resource -------------------------------------------------------
   server.registerResource(
