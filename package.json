@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "pack:plugin": "bash scripts/pack-plugin.sh"
   },
   "engines": {
     "node": ">=20"
