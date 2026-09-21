@@ -197,14 +197,22 @@ building or rendering.
 
 ```
 chatgpt-plugin/
-├── plugin.json                     portable manifest (Agent Plugins schema)
-├── mcp.json                        bundled MCP server (streamable HTTP)
+├── .codex-plugin/plugin.json       compatibility manifest (local hosts load this)
+├── .mcp.json                       bundled MCP server (compatibility layout)
+├── plugin.json                     portable manifest (public submission)
+├── mcp.json                        bundled MCP server (portable layout)
 ├── skills/gsa-build-kit/SKILL.md   the workflow instructions
 └── assets/icon.png
 ```
 
-Test it locally with the repo marketplace at `.agents/plugins/marketplace.json`:
-restart the ChatGPT desktop app, open the **Plugins** directory, choose the
+Test it locally with the repo marketplace at `.agents/plugins/marketplace.json`.
+Add the marketplace **root** (the repo root, not the plugin folder):
+
+```sh
+codex plugin marketplace add .
+```
+
+Then restart the ChatGPT desktop app, open the **Plugins** directory, choose the
 **GSA Build Kit (local)** source, and install it. See `chatgpt-plugin/README.md`
 for the personal-marketplace alternative and the publishing steps.
 

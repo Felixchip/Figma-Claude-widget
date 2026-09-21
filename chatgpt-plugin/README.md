@@ -8,11 +8,20 @@ SwiftUI, or render a mockup.
 
 ```
 chatgpt-plugin/
+├── .codex-plugin/plugin.json       compatibility manifest (what local hosts load)
+├── .mcp.json                       bundled MCP server (compatibility layout)
 ├── plugin.json                     portable manifest (Agent Plugins schema)
-├── mcp.json                        bundled MCP server (streamable HTTP)
+├── mcp.json                        bundled MCP server (portable layout)
 ├── skills/gsa-build-kit/SKILL.md   the workflow instructions
-└── assets/icon.png
+├── assets/icon.png
+└── README.md
 ```
+
+Both manifest layouts are present on purpose. Local hosts (the ChatGPT desktop
+app, Codex) load the `.codex-plugin/plugin.json` compatibility manifest, which
+is why a package with only the portable `plugin.json` is rejected with
+*"marketplace root does not contain a supported manifest"*. The portable
+`plugin.json` + `mcp.json` are for public submission.
 
 `plugin.json` carries the OpenAI presentation under `extensions.com.openai`
 (display name, category, brand colour, icon, starter prompts). The MCP server
@@ -35,7 +44,15 @@ Tools** again and submit a new plugin version.
 ## Test it locally
 
 The repo ships a marketplace at `.agents/plugins/marketplace.json` that points
-at `./chatgpt-plugin`.
+at `./chatgpt-plugin`. Add the **marketplace root**, which is the repo root, not
+the plugin folder:
+
+```sh
+codex plugin marketplace add .          # run from the repo root
+codex plugin marketplace list
+```
+
+Then:
 
 1. Restart the ChatGPT desktop app.
 2. Open the **Plugins** directory and pick the **GSA Build Kit (local)** source.
