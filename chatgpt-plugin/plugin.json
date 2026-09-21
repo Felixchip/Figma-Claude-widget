@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gsa-build-kit",
+  "version": "0.1.0",
+  "description": "Design, build and render CMC Markets interfaces with the GSA design system: the real components, tokens, rules and rendered component images.",
+  "author": {
+    "name": "CMC Markets",
+    "url": "https://www.cmcmarkets.com"
+  },
+  "homepage": "https://dsgn.up.railway.app",
+  "keywords": ["design-system", "figma", "swiftui", "ios", "cmc-markets"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "GSA Build Kit",
+        "shortDescription": "Design in Figma, build SwiftUI, or render mockups with the CMC GSA design system.",
+        "longDescription": "The CMC Markets GSA design system for agents. It gives you the real Figma component library, the design tokens, the SwiftUI components in the code repo, and rendered images of every component and variant. Use it to design a screen in Figma, build it in SwiftUI, or generate an on-brand mockup image, without inventing components.",
+        "developerName": "CMC Markets",
+        "category": "Productivity",
+        "capabilities": ["Read"],
+        "websiteURL": "https://www.cmcmarkets.com",
+        "brandColor": "#325FFF",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png",
+        "defaultPrompt": [
+          "Start with the GSA Build Kit, then design a stock order ticket.",
+          "Use the GSA Build Kit to build a watchlist screen in SwiftUI.",
+          "Generate an image of a stock order ticket using the GSA components."
+        ]
+      }
+    }
+  }
+}

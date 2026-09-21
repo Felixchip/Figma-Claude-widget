@@ -189,6 +189,25 @@ pick components, and read product specs.
 Build the UI using ONLY the components in our design system. Stay on the CMC brand.
 ```
 
+## ChatGPT / Codex plugin
+
+`chatgpt-plugin/` packages the MCP server and a skill into an installable plugin,
+so ChatGPT and Codex know to start with the rules and library before designing,
+building or rendering.
+
+```
+chatgpt-plugin/
+├── plugin.json                     portable manifest (Agent Plugins schema)
+├── mcp.json                        bundled MCP server (streamable HTTP)
+├── skills/gsa-build-kit/SKILL.md   the workflow instructions
+└── assets/icon.png
+```
+
+Test it locally with the repo marketplace at `.agents/plugins/marketplace.json`:
+restart the ChatGPT desktop app, open the **Plugins** directory, choose the
+**GSA Build Kit (local)** source, and install it. See `chatgpt-plugin/README.md`
+for the personal-marketplace alternative and the publishing steps.
+
 ## Figma widget
 
 ```sh

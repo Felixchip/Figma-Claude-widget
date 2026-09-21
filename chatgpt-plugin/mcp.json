@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "gsa-build-kit": {
+      "type": "streamable-http",
+      "url": "https://dsgn.up.railway.app/mcp"
+    }
+  }
+}
