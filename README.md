@@ -284,12 +284,20 @@ Notes:
 | `GET /api/figma/images` | List cached component renders |
 | `GET /api/figma/image/:nodeId` | Serve a render (`?theme=Light` optional) |
 | `POST /api/figma/upload` | Plugin uploads themed renders (admin) |
-| `DELETE /api/figma/images` | Clear the render cache (admin) |
-| `GET /api/status` | Server + repo status |
+| `DELETE /api/figma/images` | Clear the render cache (admin; `?theme=` clears one theme) |
+| `GET /api/usage` | Anonymous tool-call counts (`?days=7`) |
+| `GET /api/status` | Server + repo status, version and library stats |
 | `GET /health` | Health check |
 
 ## Notes
 
+- **Onboarding for internal users:** [docs/ONBOARDING.md](docs/ONBOARDING.md).
+- **Version:** `package.json` is the source of truth; `npm run sync:versions`
+  writes it into the plugin manifests and the server reads it at startup.
+- **Before/after a deploy:** `npm run smoke [baseUrl]` checks health, MCP
+  handshake, tools, the skill, the library and image serving, and exits non-zero
+  on the first failure.
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md).
 - Specs are stored in Postgres (in-memory fallback without `DATABASE_URL`). The server listens before the DB is ready and retries in the background.
 - Each MCP request gets its own server instance, so multiple agents can connect concurrently.
 - The MCP endpoint is **stateless** (no session id): a redeploy restarts the container, and stateful sessions would be lost — clients would then hang on a stale session id. Stateless means deploys (and extra replicas) are invisible to connected agents. All tools are read-only request/response, so nothing is lost by not keeping sessions.

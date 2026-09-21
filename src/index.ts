@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { randomUUID, webcrypto } from "crypto";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -59,6 +60,17 @@ const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const store: SpecStore = createStore();
 // Stamped when this process starts, so /api/status reveals whether a deploy took.
 const BUILD_TIME = new Date().toISOString();
+
+// package.json is the single source of truth for the version.
+function readVersion(): string {
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8");
+    return JSON.parse(raw).version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+const VERSION = readVersion();
 
 // Skills are loaded once and served by every MCP session.
 const SKILLS = loadSkills();
@@ -297,7 +309,7 @@ function createMcpServer(): McpServer {
   const server = new McpServer(
     {
       name: "gsa-build-kit",
-      version: "0.3.0",
+      version: VERSION,
     },
     {
       instructions:
@@ -714,6 +726,12 @@ app.put("/api/preferred-theme", async (req, res) => {
   res.json({ ok: true, theme });
 });
 
+// GET /api/usage — tool-call counts for adoption stats (aggregate only).
+app.get("/api/usage", async (req, res) => {
+  const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
+  res.json(await store.usageStats(days));
+});
+
 app.get("/api/status", async (_req, res) => {
   const figma = await figmaConnected(store);
   const figmaStatus = figma
@@ -731,6 +749,7 @@ app.get("/api/status", async (_req, res) => {
     figma: await figmaStatus,
     figmaTools: Object.keys(FIGMA_TOOL_DEFS),
     storage: store.kind,
+    version: VERSION,
     library: await store.imageStats(),
     commit: (process.env.RAILWAY_GIT_COMMIT_SHA || "").slice(0, 7) || undefined,
     builtAt: BUILD_TIME,
@@ -1186,6 +1205,13 @@ app.get("/api/specs/:id", async (req, res) => {
 app.post("/api/tools/:name", async (req, res) => {
   const name = req.params.name;
   const args = req.body ?? {};
+  void store
+    .logUsage({
+      tool: name,
+      detail: String(args?.query ?? args?.nodeId ?? args?.id ?? ""),
+      source: "rest",
+    })
+    .catch(() => {});
 
   if (name === "list_rules") {
     res.json({ result: await fullRules(), isError: false });
@@ -1246,6 +1272,13 @@ app.post("/api/tools/:name", async (req, res) => {
 // session id. Stateless means deploys (and multiple replicas) are invisible to
 // clients. All our tools are read-only request/response, so nothing is lost.
 app.post("/mcp", async (req, res) => {
+  // Usage logging for adoption stats, centralised so every tool is covered.
+  if (req.body?.method === "tools/call") {
+    const name = req.body?.params?.name;
+    const args = req.body?.params?.arguments ?? {};
+    const detail = args.query ?? args.nodeId ?? args.id ?? args.name ?? "";
+    void store.logUsage({ tool: String(name ?? "?"), detail: String(detail), source: "mcp" }).catch(() => {});
+  }
   const server = createMcpServer();
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

@@ -1,13 +1,15 @@
 {
   "name": "gsa-build-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Unified MCP server + web UI: reads Figma product specs and the GitHub components repo so agents build on-brand interfaces.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "pack:plugin": "bash scripts/pack-plugin.sh"
+    "smoke": "node scripts/smoke.mjs",
+    "sync:versions": "node scripts/sync-versions.mjs",
+    "pack:plugin": "npm run sync:versions && bash scripts/pack-plugin.sh"
   },
   "engines": {
     "node": ">=20"

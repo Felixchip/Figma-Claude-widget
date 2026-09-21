@@ -345,6 +345,12 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       </div>
 
       <div class="card">
+        <h3>Usage</h3>
+        <p id="usage-summary" style="font-size:13px;color:var(--muted)">Loading…</p>
+        <p style="font-size:12px;color:var(--content4)">Anonymous tool-call counts, last 7 days. See <code>GET /api/usage</code>.</p>
+      </div>
+
+      <div class="card">
         <h3>GSA Build Kit (this server)</h3>
         <p>One MCP endpoint for everything: your Figma design library, your code components repo, the foundation, and per-component rules, so agents reuse real components instead of inventing them.</p>
         <p class="pill">get_figma_library</p><p class="pill">list_figma_components</p><p class="pill">get_figma_component</p><p class="pill">get_figma_tokens</p><p class="pill">list_components</p><p class="pill">get_component</p><p class="pill">list_specs</p><p class="pill">get_spec</p><p class="pill">list_rules</p>
@@ -601,6 +607,7 @@ async function checkStatus() {
       ? `Server ready · ${parts.join(" · ")}`
       : `Server up, but no repo configured (set GITHUB_REPO)`;
     if (d.repo) document.getElementById("repo-label").innerHTML = `Repo: <em>${d.repo}</em>`;
+    if (d.version) document.getElementById("app-version").textContent = `v${d.version}`;
 
     const libInfo = document.getElementById("lib-source-info");
     if (libInfo) {
@@ -613,6 +620,22 @@ async function checkStatus() {
     }
   } catch (e) {
     document.getElementById("status-text").textContent = "Cannot reach server";
+  }
+}
+
+async function loadUsage() {
+  const el = document.getElementById("usage-summary");
+  if (!el) return;
+  try {
+    const d = await (await fetch(mcpUrl + "/api/usage?days=7")).json();
+    if (!d.total) {
+      el.textContent = "No tool calls recorded yet.";
+      return;
+    }
+    const top = (d.tools || []).slice(0, 5).map(t => `${t.tool} (${t.count})`).join(", ");
+    el.textContent = `${d.total} tool calls in the last ${d.days} days. Most used: ${top || "—"}.`;
+  } catch {
+    el.textContent = "Could not load usage.";
   }
 }
 
@@ -655,6 +678,7 @@ function loadForRoute(route, subtab) {
     loadComponents();
     loadAliases();
     loadFoundationEditor();
+    loadUsage();
   }
   if (route.section === "library") {
     restoreLibraryToken();
@@ -1401,6 +1425,6 @@ async function pollRender() {
 // helpers/consts are initialized.
 navigate(window.location.pathname, false);
 </script>
-<footer>© <span class="brand">CMCMarkets</span> · GSA Build Kit</footer>
+<footer>© <span class="brand">CMCMarkets</span> · GSA Build Kit <span id="app-version"></span></footer>
 </body>
 </html>

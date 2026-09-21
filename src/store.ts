@@ -50,6 +50,8 @@ export interface SpecStore {
   saveAliases(aliases: unknown[]): Promise<void>;
   getPreferredTheme(): Promise<string>;
   setPreferredTheme(theme: string): Promise<void>;
+  logUsage(event: { tool: string; detail?: string; source?: string }): Promise<void>;
+  usageStats(days?: number): Promise<UsageStats>;
   getImage(nodeId: string, theme?: string): Promise<ComponentImage | undefined>;
   saveImage(img: ComponentImage): Promise<void>;
   listImages(): Promise<ComponentImageMeta[]>;
@@ -73,6 +75,13 @@ export type ComponentImage = {
 };
 
 export type ComponentImageMeta = Omit<ComponentImage, "data"> & { bytes: number };
+
+export type UsageStats = {
+  days: number;
+  total: number;
+  tools: { tool: string; count: number }[];
+  recent: { tool: string; detail: string; source: string; at: string }[];
+};
 
 function toSpec(row: any): Spec {
   return {
@@ -144,6 +153,16 @@ class PostgresStore implements SpecStore {
     await this.pool.query(`ALTER TABLE component_images ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT ''`);
     await this.pool.query(`ALTER TABLE component_images DROP CONSTRAINT IF EXISTS component_images_pkey`);
     await this.pool.query(`ALTER TABLE component_images ADD PRIMARY KEY (node_id, theme)`);
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS usage_events (
+        id BIGSERIAL PRIMARY KEY,
+        at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        tool TEXT NOT NULL,
+        detail TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT ''
+      )
+    `);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS usage_events_at_idx ON usage_events (at DESC)`);
     this.ready = true;
   }
 
@@ -198,6 +217,40 @@ class PostgresStore implements SpecStore {
 
   async setPreferredTheme(theme: string): Promise<void> {
     await this.setSetting("preferred_theme", theme);
+  }
+
+  async logUsage(event: { tool: string; detail?: string; source?: string }): Promise<void> {
+    await this.pool.query(
+      "INSERT INTO usage_events (tool, detail, source) VALUES ($1, $2, $3)",
+      [event.tool.slice(0, 120), (event.detail ?? "").slice(0, 200), (event.source ?? "").slice(0, 60)]
+    );
+  }
+
+  async usageStats(days = 7): Promise<UsageStats> {
+    const tools = await this.pool.query(
+      `SELECT tool, count(*)::int AS count FROM usage_events
+        WHERE at > now() - ($1 || ' days')::interval
+        GROUP BY tool ORDER BY count DESC LIMIT 25`,
+      [String(days)]
+    );
+    const total = await this.pool.query(
+      `SELECT count(*)::int AS count FROM usage_events WHERE at > now() - ($1 || ' days')::interval`,
+      [String(days)]
+    );
+    const recent = await this.pool.query(
+      `SELECT tool, detail, source, at FROM usage_events ORDER BY at DESC LIMIT 25`
+    );
+    return {
+      days,
+      total: Number(total.rows[0]?.count ?? 0),
+      tools: tools.rows.map((r) => ({ tool: r.tool, count: Number(r.count) })),
+      recent: recent.rows.map((r) => ({
+        tool: r.tool,
+        detail: r.detail ?? "",
+        source: r.source ?? "",
+        at: r.at instanceof Date ? r.at.toISOString() : String(r.at),
+      })),
+    };
   }
 
   async saveUsageRules(rules: string): Promise<void> {
@@ -377,6 +430,7 @@ class MemoryStore implements SpecStore {
   private settings = new Map<string, string>();
   private images = new Map<string, ComponentImage>();
   private targets?: { targets: RenderTarget[]; fileVersion: string };
+  private usage: { tool: string; detail: string; source: string; at: string }[] = [];
   readonly kind = "memory" as const;
   ready = true;
 
@@ -487,6 +541,29 @@ class MemoryStore implements SpecStore {
 
   async setPreferredTheme(theme: string): Promise<void> {
     this.settings.set("preferred_theme", theme);
+  }
+
+  async logUsage(event: { tool: string; detail?: string; source?: string }): Promise<void> {
+    this.usage.unshift({
+      tool: event.tool,
+      detail: event.detail ?? "",
+      source: event.source ?? "",
+      at: new Date().toISOString(),
+    });
+    if (this.usage.length > 2000) this.usage.length = 2000;
+  }
+
+  async usageStats(days = 7): Promise<UsageStats> {
+    const since = Date.now() - days * 86_400_000;
+    const inWindow = this.usage.filter((e) => Date.parse(e.at) > since);
+    const counts = new Map<string, number>();
+    for (const e of inWindow) counts.set(e.tool, (counts.get(e.tool) ?? 0) + 1);
+    return {
+      days,
+      total: inWindow.length,
+      tools: [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([tool, count]) => ({ tool, count })),
+      recent: this.usage.slice(0, 25),
+    };
   }
 
   async getImage(nodeId: string, theme = ""): Promise<ComponentImage | undefined> {
