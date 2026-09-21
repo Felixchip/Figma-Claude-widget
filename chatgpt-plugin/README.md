@@ -67,24 +67,18 @@ To test just the MCP server without the plugin, enable **Developer mode**
 (Settings → Security and login), open [ChatGPT Plugins](https://chatgpt.com/plugins),
 and add `https://dsgn.up.railway.app/mcp` as a server.
 
-## Archives
+## Archive
 
-Build the uploadable zips with:
+Build the uploadable zip with:
 
 ```sh
 npm run pack:plugin
 ```
 
-That writes:
-
-| Archive | Contents | Use |
-| ------- | -------- | --- |
-| `artifacts/gsa-build-kit-plugin.zip` | the whole plugin, wrapped in `gsa-build-kit/` | sharing or archiving the package |
-| `artifacts/gsa-build-kit-skill.zip` | `gsa-build-kit/SKILL.md` | the **Skills** tab in the submission portal |
-
-Both exclude `node_modules`, `dist` and `.DS_Store`. The plugin archive keeps
-the hidden files (`.codex-plugin/plugin.json`, `.mcp.json`), so unzip with the
-usual flags if you extract it manually.
+That writes **`artifacts/gsa-build-kit.zip`** — the whole plugin, wrapped in a
+`gsa-build-kit/` folder and including the skill bundle. It excludes
+`node_modules`, `dist` and `.DS_Store`, and keeps the hidden files
+(`.codex-plugin/plugin.json`, `.mcp.json`).
 
 ## Publish
 
