@@ -131,16 +131,17 @@ with a `url` but no `type` is read as a stdio server and skipped.
 
 ### ChatGPT / Codex connector
 
-The `gsa-build-kit` MCP is a **stateless** Streamable HTTP server at
-`https://<your-app>.up.railway.app/mcp` and works as an open connector (no per-user
-login). All tools are read-only.
+**ChatGPT:** install the plugin from
+<https://chatgpt.com/plugins/Plugin_e479615d1dc881919dcff3352174c5a7?open_in_app>,
+then start a chat and invoke it with `@`. That installs the MCP server and the
+skill together.
 
-1. **ChatGPT app**: Settings → **Plugins** → **MCP Servers** → **Add server** →
-   **Streamable HTTP**, paste the URL. If the option isn't visible, turn on
-   **Developer mode** under Settings → **Security and login**. On the web, add it
-   at [chatgpt.com/plugins](https://chatgpt.com/plugins) (plus button → MCP server URL).
-2. **Codex CLI**: `codex mcp add gsa-build-kit --url https://<your-app>.up.railway.app/mcp`
-3. **Codex config file** (`~/.codex/config.toml`, shared by the desktop app, CLI and
+**Codex:** the `gsa-build-kit` MCP is a **stateless** Streamable HTTP server at
+`https://<your-app>.up.railway.app/mcp` and works as an open connector (no
+per-user login). All tools are read-only.
+
+1. **Codex CLI**: `codex mcp add gsa-build-kit --url https://<your-app>.up.railway.app/mcp`
+2. **Codex config file** (`~/.codex/config.toml`, shared by the desktop app, CLI and
    IDE extension):
 
 ```toml
@@ -148,8 +149,9 @@ login). All tools are read-only.
 url = "https://<your-app>.up.railway.app/mcp"
 ```
 
-ChatGPT **web** doesn't read local Codex config — it uses plugins/connectors
-installed in the workspace.
+To add the server to ChatGPT by hand instead of using the plugin link: enable
+**Developer mode** (Settings → **Security and login**), then Settings →
+**Plugins** → **MCP Servers** → **Add server** → **Streamable HTTP**.
 
 Design/write flow for ChatGPT users:
 - The Build Kit connector supplies the components/tokens/rules (read-only, shared).

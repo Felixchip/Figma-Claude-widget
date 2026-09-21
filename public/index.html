@@ -91,6 +91,9 @@
   .codewindow .body { padding: 16px; overflow-x: auto; font-size: 13px; color: #E6E9F0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .agent-link { display: inline-block; margin-bottom: 16px; font-size: 14px; font-weight: 600; color: var(--primary2); text-decoration: none; background: var(--primary1); border-radius: var(--radius-pill); padding: 11px 20px; transition: background .15s ease; }
+  .agent-link:hover { background: var(--primary4); }
+  .agent-link::after { content: " →"; }
   .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .lib-toolbar input[type="search"] { flex: 1; min-width: 220px; }
   .lib-count { font-size: 13px; color: var(--content4); }
@@ -245,7 +248,8 @@
         </button>
         <div class="dropdown-menu hidden" id="agent-menu" role="listbox"></div>
       </div>
-      <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:16px;white-space:pre-line"></p>
+      <p id="agent-hint" style="font-size:13px;color:var(--muted);margin-top:12px;padding-bottom:12px;white-space:pre-line"></p>
+      <a id="agent-link" class="agent-link hidden" target="_blank" rel="noopener"></a>
       <div class="codewindow">
         <div class="bar">
           <span class="filename">mcp.json</span>
@@ -492,7 +496,11 @@ const serverUrl = mcpUrl + "/mcp";
 const AGENTS = {
   "chatgpt-codex": {
     label: "ChatGPT / Codex",
-    hint: "ChatGPT: Settings → Plugins → MCP Servers → Add server → Streamable HTTP, paste the URL.\nCodex: add the TOML to ~/.codex/config.toml, or run codex mcp add.",
+    hint: "ChatGPT: install the plugin, then start a chat and invoke it with @.\nCodex: add the TOML to ~/.codex/config.toml, or run codex mcp add.",
+    link: {
+      href: "https://chatgpt.com/plugins/Plugin_e479615d1dc881919dcff3352174c5a7?open_in_app",
+      label: "Install the GSA Build Kit plugin"
+    },
     code: `[mcp_servers.gsa-build-kit]
 url = "${serverUrl}"`
   },
@@ -535,6 +543,16 @@ function renderAgent(key) {
   document.getElementById("agent-trigger-label").textContent = agent.label;
   document.getElementById("agent-code").textContent = agent.code;
   document.getElementById("agent-hint").textContent = agent.hint;
+  const link = document.getElementById("agent-link");
+  if (agent.link) {
+    link.href = agent.link.href;
+    link.textContent = agent.link.label;
+    link.classList.remove("hidden");
+  } else {
+    link.classList.add("hidden");
+    link.removeAttribute("href");
+    link.textContent = "";
+  }
   document.getElementById("copied").classList.add("hidden");
   document.querySelectorAll("#agent-menu .dropdown-item").forEach(el =>
     el.classList.toggle("selected", el.dataset.value === key)
