@@ -291,6 +291,8 @@ Notes:
 
 ## Notes
 
+- **Case study** (the story, decisions and tradeoffs):
+  [docs/CASE-STUDY.md](docs/CASE-STUDY.md).
 - **Project status** (what's built, pending, and needs revisiting):
   [docs/STATUS.md](docs/STATUS.md).
 - **Onboarding for internal users:** [docs/ONBOARDING.md](docs/ONBOARDING.md).
