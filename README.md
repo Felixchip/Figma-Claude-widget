@@ -291,6 +291,8 @@ Notes:
 
 ## Notes
 
+- **Project status** (what's built, pending, and needs revisiting):
+  [docs/STATUS.md](docs/STATUS.md).
 - **Onboarding for internal users:** [docs/ONBOARDING.md](docs/ONBOARDING.md).
 - **Version:** `package.json` is the source of truth; `npm run sync:versions`
   writes it into the plugin manifests and the server reads it at startup.
