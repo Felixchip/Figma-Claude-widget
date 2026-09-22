@@ -662,7 +662,7 @@ async function checkStatus() {
     currentUser = d.auth?.user ?? null;
     if (authOn) {
       authBox.innerHTML = currentUser
-        ? `Signed in as <b>${esc(currentUser)}</b> <a href="/logout">Sign out</a>`
+        ? `<b>${esc(currentUser)}</b> <a href="/logout">Sign out</a>`
         : `<a href="#" id="auth-signin">Sign in</a>`;
       authBox.classList.remove("hidden");
     } else {
