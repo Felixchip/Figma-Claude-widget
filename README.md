@@ -273,29 +273,26 @@ Notes:
   and are never pruned by the server-side warm-up.
 - Server-rendered images use theme `""` (shown as **Default** in the Library).
 
-## Sign-in for Library and Settings
+## Admin sign-in for Library and Settings
 
-The Library and Settings pages can be gated behind one shared password. The
-Overview stays public, as do `/mcp`, `/health` and `/api/status`.
+The Library and Settings pages are restricted to admins. The **password is the
+admin token** (`ADMIN_TOKEN`), so the people who can see those pages are exactly
+the people who can change things — one secret, one audience.
 
 | Variable | Meaning |
 | -------- | ------- |
-| `APP_PASSWORD` | Shared password. **Unset = sign-in disabled** (the default) |
-| `SESSION_SECRET` | Optional key for signing the session cookie; falls back to `APP_PASSWORD` |
+| `ADMIN_TOKEN` | The admin token, and the sign-in password. **Unset = no sign-in** |
+| `SESSION_SECRET` | Optional key for signing the session cookie; falls back to `ADMIN_TOKEN` |
 
 How it behaves:
 
 - Visitors to `/library` or `/settings` are redirected to `/login`, which asks
-  for a **name** and the password. The name is shown in the header and logged.
+  for a **name** and the admin token. The name is shown in the header and logged.
 - The session is a signed, `HttpOnly`, `SameSite=Lax` cookie, valid 30 days.
-  Rotating `APP_PASSWORD` (or `SESSION_SECRET`) signs everyone out.
-- A valid `ADMIN_TOKEN` still works for API calls, so the Figma plugin and
-  `curl` flows are unaffected. The plugin never needs a cookie.
-- `GET /api/status` reports `auth.enabled` and, for a signed-in caller only,
-  their own name.
-
-Changing the password in Railway takes effect immediately; no redeploy of code
-is needed.
+  Rotating the admin token signs everyone out.
+- API calls with `Authorization: Bearer <ADMIN_TOKEN>` still pass without a
+  cookie, so the Figma plugin and `curl` flows are unaffected.
+- The Overview stays public, as do `/mcp`, `/health` and `/api/status`.
 
 ## Restricting access
 

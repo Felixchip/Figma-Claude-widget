@@ -70,14 +70,13 @@ section are closed.
 
 | # | Item | Why it matters | Effort |
 | --- | --- | --- | --- |
-| 1 | **Add our corporate network ranges** | Access is now limited to recognised networks. ChatGPT's ranges are handled automatically, but colleagues using Codex, Claude Code or Cursor connect from our own network, so those ranges must be added or they will be blocked. | 10 minutes |
+| 1 | **Add our corporate network ranges** | Access is limited to recognised networks. ChatGPT's ranges are handled automatically, but colleagues using Codex, Claude Code or Cursor connect from our own network, so those ranges must be added or they will be blocked. | 10 minutes |
 | 2 | **Publish the plugin to the CMC workspace** | The one-click install link only works for the person who set it up. Publishing makes it available to colleagues. | 10 minutes |
-| 3 | **Set the shared password** | The sign-in for Library and Settings is built but switched off until a password is configured. | 5 minutes |
-| 4 | **Add a test environment** | So a bad update can't take the tool down for everyone, and we can undo it quickly. | Small |
-| 5 | **Alerting when something breaks** | Today we'd find out when a user tells us. | Small |
-| 6 | **Protect against heavy traffic** | Nothing currently limits usage from an allowed network. | Small |
-| 7 | **Record who changes the guidance** | We now capture a name at sign-in, but edits still share one password, so it isn't accountability. | Medium |
-| 8 | **Reduce the cost of images** | Sending full images to the assistants uses more of their usage allowance than necessary. | Medium |
+| 3 | **Add a test environment** | So a bad update can't take the tool down for everyone, and we can undo it quickly. | Small |
+| 4 | **Alerting when something breaks** | Today we'd find out when a user tells us. | Small |
+| 5 | **Protect against heavy traffic** | Nothing currently limits usage from an allowed network. | Small |
+| 6 | **Record who changes the guidance** | We capture a name at sign-in, but everyone shares one password, so it isn't full accountability. | Medium |
+| 7 | **Reduce the cost of images** | Sending full images to the assistants uses more of their usage allowance than necessary. | Medium |
 
 ---
 
@@ -110,19 +109,21 @@ this, which would give us accountability for who changes what.
 
 ---
 
-## Also done: sign-in for the team areas
+## Also done: admin-only access to the team areas
 
-The Library and Settings pages now sit behind a sign-in. It asks for a **name and
-one shared password**, and the name is shown in the header so we know who is
-using it. The Overview page stays open, so anyone can read what the tool is and
-how to connect.
+The Library and Settings pages now sit behind an admin sign-in. The **password is
+the admin token**, so only people who already have admin rights can see those
+pages or change anything. It asks for a name as well, which is shown in the
+header so we know who is using it.
 
-This is a first step, not full accountability: everyone uses the same password,
-so a name tells us who signed in, not who made a particular change. That is item
-7 on the list above.
+The Overview page stays open, so anyone can read what the tool is and how to
+connect.
 
-It is switched on by setting a password in the deployment settings, and off by
-removing it — no code change either way.
+This is on whenever an admin token is configured, and off when it isn't — no
+separate password to manage, and no code change either way.
+
+It is not yet full accountability: everyone shares the same token, so the name
+tells us who signed in, not who made a particular change. That is item 6 above.
 
 ---
 
