@@ -335,6 +335,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
           </div>
         </div>
         <div id="figma-not-connected" class="hidden">
+          <p id="figma-env-note" class="hidden" style="margin-bottom:12px">Figma is configured through the <code>FIGMA_PAT</code> environment variable. If the library isn't loading, check that variable in the deployment settings.</p>
           <p style="margin-bottom:12px">Connect a Figma source to expose the design library to agents.</p>
           <button id="btn-figma-connect">Connect with OAuth</button>
           <p id="figma-err" style="margin-top:8px;font-size:13px;color:var(--red)"></p>
@@ -750,19 +751,19 @@ const loginModal = document.getElementById("login-modal");
 let authOn = false;
 let currentUser = null;
 let authChecked = false;
+let pendingPath = null; // where to go once signed in
 
-// Resolves the auth state once, then reports whether we may load a protected
-// page. Raises the modal when we may not.
-async function ensureSignedIn() {
+// Resolves the auth state once, then reports whether a protected page may load.
+async function authReady() {
   if (!authChecked) {
     await checkStatus();
     authChecked = true;
   }
-  if (authOn && !currentUser) {
-    openLogin();
-    return false;
-  }
-  return true;
+  return !authOn || !!currentUser;
+}
+
+function hideAllSections() {
+  document.querySelectorAll("main > section").forEach((s) => s.classList.add("hidden"));
 }
 
 function openLogin() {
@@ -773,6 +774,12 @@ function openLogin() {
 }
 function closeLogin() {
   loginModal.classList.add("hidden");
+  // Closed without signing in: don't strand the user on a hidden page.
+  if (pendingPath && !currentUser) {
+    pendingPath = null;
+    history.replaceState({}, "", "/");
+    navigate("/");
+  }
 }
 
 document.getElementById("login-close").addEventListener("click", closeLogin);
@@ -807,9 +814,12 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     }
     currentUser = d.name || name;
     document.getElementById("login-password").value = "";
+    const target = pendingPath;
+    pendingPath = null;
     closeLogin();
     await checkStatus();
-    navigate(window.location.pathname);
+    // Continue to the page they were trying to reach.
+    navigate(target || window.location.pathname);
   } catch (err2) {
     err.textContent = "Could not sign in: " + err2.message;
     err.classList.remove("hidden");
@@ -856,13 +866,19 @@ function showSection(sectionName) {
 }
 
 async function loadForRoute(route, subtab) {
-  showSection(route.section);
   document.querySelectorAll("nav a").forEach(x => x.classList.toggle("active", x.dataset.route === route.section));
   if (route.section === "library" || route.section === "settings") {
-    // Make sure we know the auth state before loading protected data, otherwise
-    // the page renders signed-out errors behind the modal.
-    if (!(await ensureSignedIn())) return;
+    if (!(await authReady())) {
+      // Don't reveal the locked page: hide it, ask for sign-in, then continue
+      // to it once authenticated.
+      pendingPath = window.location.pathname;
+      hideAllSections();
+      openLogin();
+      return;
+    }
   }
+  pendingPath = null;
+  showSection(route.section);
   if (route.section === "settings") {
     restoreAdminToken();
     switchSubtab(subtab || "settings-home", true);
@@ -1028,7 +1044,11 @@ async function refreshFigma() {
     } else {
       connected.classList.add("hidden");
       notConnected.classList.remove("hidden");
-      document.getElementById("figma-err").textContent = d.configured
+      // With a token in the environment, OAuth is neither needed nor usable.
+      const viaEnv = !!d.envConfigured;
+      document.getElementById("figma-env-note").classList.toggle("hidden", !viaEnv);
+      document.getElementById("btn-figma-connect").style.display = viaEnv ? "none" : "";
+      document.getElementById("figma-err").textContent = viaEnv || d.configured
         ? ""
         : "Figma OAuth is not configured. Either set FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET and PUBLIC_BASE_URL, or connect with a personal access token below.";
     }
