@@ -8,6 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { createStore, type Spec, type SpecStore } from "./store.js";
+import { allowlistEnabled, allowlistStats, clientIp, initAllowlist, ipAllowed } from "./allowlist.js";
 import { configReady, loadConfig, type GitHubConfig } from "./github.js";
 import {
   getRepoOverview,
@@ -702,9 +703,40 @@ function formatSpec(spec: Spec): string {
 // ---------------------------------------------------------------------------
 
 const app = express();
+app.set("trust proxy", true);
 app.use(cors({ exposedHeaders: ["Mcp-Session-Id"] }));
 // Large limit: the Figma plugin uploads batches of base64 PNGs.
 app.use(express.json({ limit: "64mb" }));
+
+// Keep the service out of search engines.
+app.use((_req, res, next) => {
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  next();
+});
+
+// --- Access restriction (recognised networks only) -------------------------
+// Opt-in: set ALLOWED_IPS (comma-separated CIDRs) and/or ALLOW_OPENAI_IPS=true.
+// See src/allowlist.ts for the important caveat about local CLI agents.
+const ALLOWED_IPS = (process.env.ALLOWED_IPS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const ALLOW_OPENAI_IPS = process.env.ALLOW_OPENAI_IPS === "true";
+
+if (ALLOWED_IPS.length || ALLOW_OPENAI_IPS) {
+  void initAllowlist({ manual: ALLOWED_IPS, includeOpenAi: ALLOW_OPENAI_IPS });
+}
+
+app.use((req, res, next) => {
+  if (!allowlistEnabled()) return next();
+  if (req.path === "/health") return next();
+  const ip = clientIp(req.headers as Record<string, unknown>, req.socket.remoteAddress);
+  if (ipAllowed(ip)) return next();
+  console.warn(`[allowlist] blocked ${ip} ${req.method} ${req.path}`);
+  // Echo the caller's own address: they already know it, and it makes
+  // allowlist debugging trivial.
+  res.status(403).type("text/plain").send(`Access is restricted to recognised networks.\nYour address: ${ip}\n`);
+});
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, specs: store.ready ? null : "initializing", github: configReady(githubCfg) });
@@ -750,6 +782,7 @@ app.get("/api/status", async (_req, res) => {
     figmaTools: Object.keys(FIGMA_TOOL_DEFS),
     storage: store.kind,
     version: VERSION,
+    access: allowlistStats(),
     library: await store.imageStats(),
     commit: (process.env.RAILWAY_GIT_COMMIT_SHA || "").slice(0, 7) || undefined,
     builtAt: BUILD_TIME,

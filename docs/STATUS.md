@@ -56,7 +56,7 @@ in the code repository. It only reads.
 | Core capability | Ready | Working end to end, verified automatically after each release |
 | ChatGPT plugin | Ready to share | Installable today; needs publishing to the CMC workspace |
 | Content and rules | Ready | Editable by the team; no developer needed |
-| Access control | Decision needed | See "Decision needed" below |
+| Access control | In progress | Restricted to recognised networks; needs our corporate ranges added |
 | Operational safeguards | In progress | No test environment, alerts or traffic limits yet |
 | Editing accountability | Not started | Anyone with the admin password can edit, with no record of who changed what |
 
@@ -70,36 +70,43 @@ section are closed.
 
 | # | Item | Why it matters | Effort |
 | --- | --- | --- | --- |
-| 1 | **Decide who can reach it** | The service is currently open to anyone with the address. It exposes our design system and our component code, which today sits in a private repository. This needs a decision from the design system owner and security. | Decision |
+| 1 | **Add our corporate network ranges** | Access is now limited to recognised networks. ChatGPT's ranges are handled automatically, but colleagues using Codex, Claude Code or Cursor connect from our own network, so those ranges must be added or they will be blocked. | 10 minutes |
 | 2 | **Publish the plugin to the CMC workspace** | The one-click install link only works for the person who set it up. Publishing makes it available to colleagues. | 10 minutes |
-| 3 | **Lock the website behind a login** | The browsing site is also open. A simple shared login is enough to start. | Small |
+| 3 | **Lock the website behind a login** | The browsing site is reachable from any allowed network. A simple shared login adds a second layer. | Small |
 | 4 | **Add a test environment** | So a bad update can't take the tool down for everyone, and we can undo it quickly. | Small |
 | 5 | **Alerting when something breaks** | Today we'd find out when a user tells us. | Small |
-| 6 | **Protect against heavy traffic** | Nothing currently limits usage of the public address. | Small |
+| 6 | **Protect against heavy traffic** | Nothing currently limits usage from an allowed network. | Small |
 | 7 | **Record who changes the guidance** | One shared password means no accountability and no way to undo a bad edit. | Medium |
 | 8 | **Reduce the cost of images** | Sending full images to the assistants uses more of their usage allowance than necessary. | Medium |
 
 ---
 
-## Decision needed
+## Decision taken: access is restricted
 
-**How open should this be?**
+We chose to **limit access to recognised networks** rather than leave the
+service open.
 
-The service must be reachable from the internet for ChatGPT to use it — ChatGPT
-runs in the cloud, not on our network. So we cannot simply put it behind the
-corporate firewall.
+**What this means in practice**
 
-There are three realistic options:
+- ChatGPT's traffic is recognised automatically; the list is fetched from
+  OpenAI's published ranges and refreshed twice a day, so it stays current.
+- Traffic from anywhere else is refused, with a message that tells the caller
+  their own address so it can be added if legitimate.
+- Our own network ranges still need to be supplied. Until they are, colleagues
+  using Codex, Claude Code or Cursor — which run on their own machines — will be
+  blocked.
 
-1. **Leave it open (read-only).** Simplest. Accepts that our design system and
-   component code are publicly readable.
-2. **Restrict it to recognised AI traffic.** Reduces casual access but not to
-   zero, and it blocks nothing if the address leaks.
-3. **Require proper sign-in.** The most secure, and the most work — it needs our
-   identity provider and a few days of build.
+**Worth knowing**
 
-**We need:** a decision and a named owner. Everything else on the list is
-implementation.
+- This controls *which networks* can reach the service, not *who* the person is.
+  It reduces exposure; it does not replace sign-in.
+- ChatGPT has to reach us from the internet, so we could not simply put this
+  behind the corporate firewall.
+- It is fully reversible: removing the configuration settings restores the
+  previous behaviour.
+
+**Still to decide:** whether we eventually need proper sign-in (item 3) on top of
+this, which would give us accountability for who changes what.
 
 ---
 

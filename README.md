@@ -44,6 +44,8 @@ To let admins connect a Figma library:
 | `FIGMA_CLIENT_ID` | Figma OAuth app client id |
 | `FIGMA_CLIENT_SECRET` | Figma OAuth app secret |
 | `PUBLIC_BASE_URL` | Your app URL, e.g. `https://your-app.up.railway.app` |
+| `ALLOW_OPENAI_IPS` | `true` to allow OpenAI's ChatGPT connector ranges (see [Restricting access](#restricting-access)) |
+| `ALLOWED_IPS` | Extra CIDRs to allow, e.g. corporate/VPN ranges |
 
 5. In the web UI → Settings → **Connect Figma**, then paste a design library file URL and **Pick library**.
 
@@ -270,6 +272,28 @@ Notes:
 - Uploaded themes are stored alongside the default render (keyed by node id + theme)
   and are never pruned by the server-side warm-up.
 - Server-rendered images use theme `""` (shown as **Default** in the Library).
+
+## Restricting access
+
+The service is public by default. To limit it to recognised networks, set:
+
+| Variable | Meaning |
+| -------- | ------- |
+| `ALLOW_OPENAI_IPS=true` | Allow OpenAI's published ChatGPT connector ranges, fetched from `https://openai.com/chatgpt-connectors.json` and refreshed every 12 hours |
+| `ALLOWED_IPS` | Extra comma-separated CIDRs (IPv4 or IPv6), e.g. your corporate/VPN ranges and other AI vendors |
+
+With either set, everything except `/health` returns `403` for anything else.
+The `403` echoes the caller's own address so a blocked user can tell you exactly
+what to add. `/api/status` reports the loaded range counts under `access`.
+
+**Important:** an IP allowlist identifies a *network*, not a user, and it is not
+a substitute for authentication. Note also that agents running on a user's own
+machine — **Codex CLI, Claude Code, Cursor** — connect from the *user's* network,
+not from an AI vendor. Only ChatGPT and claude.ai call from vendor
+infrastructure, so include your corporate/VPN ranges or those clients will be
+blocked.
+
+To turn it off again, remove the variables and redeploy.
 
 ## REST API (for the widget and playground)
 
