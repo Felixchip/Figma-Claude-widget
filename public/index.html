@@ -297,8 +297,8 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <span id="lib-count" class="lib-count"></span>
         <button id="btn-render" class="secondary">Render / refresh</button>
       </div>
-      <label style="margin-top:20px">Admin token <span style="color:var(--muted);font-weight:400">(needed to render)</span></label>
-      <input id="library-admin-token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off">
+      <label style="margin-top:20px">Password <span style="color:var(--muted);font-weight:400">(needed to render)</span></label>
+      <input id="library-admin-token" type="password" placeholder="Password" autocomplete="off">
       <label style="margin-top:20px">Preferred theme for agents</label>
       <div class="lib-row">
         <select id="lib-preferred" style="max-width:240px"></select>
@@ -373,8 +373,8 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       <div class="card">
         <h3>Component usage rules</h3>
         <p>Define a usage rule per component. Components are discovered automatically from the Figma library and the GitHub repo (matched by name). Empty until you define a rule. Agents read these via <code>list_rules</code> / <code>design://rules</code>.</p>
-        <label for="rules-admin-token">Admin token</label>
-        <input type="password" id="rules-admin-token" placeholder="ADMIN_TOKEN">
+        <label for="rules-admin-token">Password</label>
+        <input type="password" id="rules-admin-token" placeholder="Password">
         <div class="toolbar" style="margin-top:12px">
           <button id="btn-components-load" class="secondary">Reload components</button>
           <button id="btn-components-sync" class="secondary">Sync from Figma + GitHub</button>
@@ -405,8 +405,8 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <div id="foundation-preview-wrap" class="markdown-body" style="margin-top:14px"><p style="color:var(--muted)">Loading…</p></div>
         <div id="foundation-edit-wrap" class="hidden">
           <hr style="border:none;border-top:1px solid var(--outline2);margin:16px 0">
-          <label for="foundation-admin-token">Admin token</label>
-          <input type="password" id="foundation-admin-token" placeholder="ADMIN_TOKEN">
+          <label for="foundation-admin-token">Password</label>
+          <input type="password" id="foundation-admin-token" placeholder="Password">
           <label for="foundation-editor" style="margin-top:12px">Foundation (markdown)</label>
           <textarea id="foundation-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
           <div class="toolbar" style="margin-top:12px">
@@ -440,8 +440,8 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
         <div id="render-preview-wrap" class="markdown-body" style="margin-top:8px"><p style="color:var(--muted)">Loading…</p></div>
         <div id="render-edit-wrap" class="hidden">
           <hr style="border:none;border-top:1px solid var(--outline2);margin:16px 0">
-          <label for="render-admin-token">Admin token</label>
-          <input type="password" id="render-admin-token" placeholder="ADMIN_TOKEN">
+          <label for="render-admin-token">Password</label>
+          <input type="password" id="render-admin-token" placeholder="Password">
           <label for="render-editor" style="margin-top:12px">Render specifics (markdown)</label>
           <textarea id="render-editor" style="min-height:320px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
           <div class="toolbar" style="margin-top:12px">
@@ -1360,7 +1360,7 @@ document.getElementById("lib-preferred").addEventListener("change", async () => 
   const headers = libraryAuthHeaders();
   if (!headers.Authorization) {
     status.style.color = "var(--red)";
-    status.textContent = "Enter your admin token first.";
+    status.textContent = "Enter your password first.";
     return;
   }
   status.style.color = "var(--muted)";
@@ -1393,7 +1393,7 @@ function renderLibrary() {
   const theme = document.getElementById("lib-theme").value || "__all";
   if (!libraryImages.length) {
     count.textContent = "";
-    grid.innerHTML = '<p style="color:var(--muted)">No images rendered yet. Add your admin token and click <b>Render / refresh</b>, or export from the Figma plugin.</p>';
+    grid.innerHTML = '<p style="color:var(--muted)">No images rendered yet. Add your password and click <b>Render / refresh</b>, or export from the Figma plugin.</p>';
     return;
   }
   const rows = libraryImages.filter(i => {
@@ -1463,7 +1463,7 @@ document.getElementById("btn-render").addEventListener("click", async () => {
   const headers = libraryAuthHeaders();
   if (!headers.Authorization) {
     status.style.color = "var(--red)";
-    status.textContent = "Enter your admin token first.";
+    status.textContent = "Enter your password first.";
     return;
   }
   btn.disabled = true;
