@@ -286,10 +286,13 @@ the people who can change things — one secret, one audience.
 
 How it behaves:
 
-- Visitors to `/library` or `/settings` are redirected to `/login`, which asks
-  for a **name** and the admin token. The name is shown in the header and logged.
+- Opening `/library` or `/settings` shows the app with a **sign-in modal** over
+  it, asking for a **name** and the admin token. The name appears in the header
+  and in the audit log.
 - The session is a signed, `HttpOnly`, `SameSite=Lax` cookie, valid 30 days.
   Rotating the admin token signs everyone out.
+- Any protected API returning `401` re-opens the modal, so an expired session
+  doesn't look like a broken page.
 - API calls with `Authorization: Bearer <ADMIN_TOKEN>` still pass without a
   cookie, so the Figma plugin and `curl` flows are unaffected.
 - The Overview stays public, as do `/mcp`, `/health` and `/api/status`.

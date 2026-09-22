@@ -9,7 +9,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { z } from "zod";
 import { createStore, type Spec, type SpecStore } from "./store.js";
 import { allowlistEnabled, allowlistStats, clientIp, initAllowlist, ipAllowed } from "./allowlist.js";
-import { authEnabled, checkPassword, clearSessionCookie, createSessionCookie, readSession, safeNext } from "./auth.js";
+import { authEnabled, checkPassword, clearSessionCookie, createSessionCookie, readSession } from "./auth.js";
 import { configReady, loadConfig, type GitHubConfig } from "./github.js";
 import {
   getRepoOverview,
@@ -789,31 +789,34 @@ app.use((req, res, next) => {
     res.status(401).json({ error: "Sign in required." });
     return;
   }
-  res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  // Page requests fall through: the app shell loads and shows the sign-in
+  // modal. All of the data behind it comes from protected API calls.
+  next();
 });
 
+// /login loads the app; the client shows the sign-in modal.
 app.get("/login", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
-  res.sendFile(path.join(PUBLIC_DIR, "login.html"));
+  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 
+// POST /login — called by the modal. Returns JSON; sets the session cookie.
 app.post("/login", (req, res) => {
   const body = req.body ?? {};
   const name = String(body.name ?? "").trim();
   const password = String(body.password ?? "");
-  const next = safeNext(body.next);
   if (!authEnabled()) {
-    res.redirect(next);
+    res.json({ ok: true, name: name || "guest" });
     return;
   }
   if (!name || !checkPassword(password)) {
-    res.redirect(`/login?error=1&next=${encodeURIComponent(next)}`);
+    res.status(401).json({ error: "That didn't match the admin token. Try again." });
     return;
   }
   const cookie = createSessionCookie(name);
   if (cookie) res.setHeader("Set-Cookie", cookie);
   console.log(`[auth] ${name} signed in`);
-  res.redirect(next);
+  res.json({ ok: true, name });
 });
 
 app.all("/logout", (_req, res) => {

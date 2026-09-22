@@ -104,6 +104,10 @@
   .audit-actor { color: var(--text); font-weight: 600; white-space: nowrap; }
   .audit-when { color: var(--content4); white-space: nowrap; }
   .audit-action { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--primary2); }
+  .login-body { padding: 20px 28px 26px; }
+  .login-body label:first-of-type { margin-top: 0; }
+  .login-submit { width: 100%; margin-top: 22px; padding: 13px 18px; }
+  .login-error { margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--error3); background: #FDECEC; }
   .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .lib-toolbar input[type="search"] { flex: 1; min-width: 220px; }
   .lib-count { font-size: 13px; color: var(--content4); }
@@ -517,6 +521,26 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
   </div>
 </div>
 
+<div id="login-modal" class="modal-backdrop hidden">
+  <form class="modal" id="login-form" autocomplete="on">
+    <div class="modal-head">
+      <div>
+        <h2>Admin sign in</h2>
+        <p class="modal-sub">The Library and Settings are restricted to admins.</p>
+      </div>
+      <button type="button" class="modal-close" id="login-close" aria-label="Close">×</button>
+    </div>
+    <div class="login-body">
+      <label for="login-name">Name</label>
+      <input id="login-name" name="name" required autocomplete="name">
+      <label for="login-password">Password</label>
+      <input id="login-password" name="password" type="password" required autocomplete="current-password">
+      <p id="login-error" class="login-error hidden"></p>
+      <button type="submit" class="login-submit">Sign in</button>
+    </div>
+  </form>
+</div>
+
 <script>
 const url = new URL(window.location.href);
 const mcpUrl = url.origin;
@@ -634,10 +658,12 @@ async function checkStatus() {
     if (d.version) document.getElementById("app-version").textContent = `v${d.version}`;
 
     const authBox = document.getElementById("auth-box");
-    if (d.auth?.enabled) {
-      authBox.innerHTML = d.auth.user
-        ? `Signed in as <b>${esc(d.auth.user)}</b> <a href="/logout">Sign out</a>`
-        : `<a href="/login">Sign in</a>`;
+    authOn = !!d.auth?.enabled;
+    currentUser = d.auth?.user ?? null;
+    if (authOn) {
+      authBox.innerHTML = currentUser
+        ? `Signed in as <b>${esc(currentUser)}</b> <a href="/logout">Sign out</a>`
+        : `<a href="#" id="auth-signin">Sign in</a>`;
       authBox.classList.remove("hidden");
     } else {
       authBox.classList.add("hidden");
@@ -718,6 +744,72 @@ function fmtWhen(iso) {
 
 document.getElementById("btn-audit-reload").addEventListener("click", loadAudit);
 
+// --- Sign-in modal ---------------------------------------------------------
+const loginModal = document.getElementById("login-modal");
+let authOn = false;
+let currentUser = null;
+
+function openLogin() {
+  if (!authOn || currentUser) return;
+  document.getElementById("login-error").classList.add("hidden");
+  loginModal.classList.remove("hidden");
+  setTimeout(() => document.getElementById("login-name").focus(), 50);
+}
+function closeLogin() {
+  loginModal.classList.add("hidden");
+}
+
+document.getElementById("login-close").addEventListener("click", closeLogin);
+loginModal.addEventListener("click", (e) => { if (e.target === loginModal) closeLogin(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !loginModal.classList.contains("hidden")) closeLogin();
+});
+document.getElementById("auth-box").addEventListener("click", (e) => {
+  if (e.target.id === "auth-signin") {
+    e.preventDefault();
+    openLogin();
+  }
+});
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("login-name").value.trim();
+  const password = document.getElementById("login-password").value;
+  const err = document.getElementById("login-error");
+  err.classList.add("hidden");
+  try {
+    const r = await fetch(mcpUrl + "/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, password })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      err.textContent = d.error || "That didn't match. Try again.";
+      err.classList.remove("hidden");
+      return;
+    }
+    currentUser = d.name || name;
+    document.getElementById("login-password").value = "";
+    closeLogin();
+    await checkStatus();
+    navigate(window.location.pathname);
+  } catch (err2) {
+    err.textContent = "Could not sign in: " + err2.message;
+    err.classList.remove("hidden");
+  }
+});
+
+// Any protected API answering 401 raises the modal, so an expired session
+// doesn't just look like a broken page.
+const rawFetch = window.fetch.bind(window);
+window.fetch = async (input, init) => {
+  const res = await rawFetch(input, init);
+  const url = typeof input === "string" ? input : input?.url ?? "";
+  if (res.status === 401 && url.includes("/api/")) openLogin();
+  return res;
+};
+
 // How-to-use modal
 const howModal = document.getElementById("how-modal");
 function toggleHow(open) {
@@ -750,6 +842,11 @@ function showSection(sectionName) {
 function loadForRoute(route, subtab) {
   showSection(route.section);
   document.querySelectorAll("nav a").forEach(x => x.classList.toggle("active", x.dataset.route === route.section));
+  const needsSignIn = route.section === "library" || route.section === "settings";
+  if (needsSignIn && authOn && !currentUser) {
+    openLogin();
+    return;
+  }
   if (route.section === "settings") {
     restoreAdminToken();
     switchSubtab(subtab || "settings-home", true);

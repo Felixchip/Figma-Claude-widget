@@ -86,9 +86,3 @@ export function checkPassword(input: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-// Only allow same-site redirects after sign-in.
-export function safeNext(value: unknown): string {
-  const next = typeof value === "string" ? value : "";
-  if (!next.startsWith("/") || next.startsWith("//")) return "/";
-  return next;
-}
