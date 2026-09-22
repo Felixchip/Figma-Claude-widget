@@ -56,9 +56,9 @@ in the code repository. It only reads.
 | Core capability | Ready | Working end to end, verified automatically after each release |
 | ChatGPT plugin | Ready to share | Installable today; needs publishing to the CMC workspace |
 | Content and rules | Ready | Editable by the team; no developer needed |
-| Access control | In progress | Restricted to recognised networks; needs our corporate ranges added |
+| Access control | In progress | Networks restricted; Library and Settings now behind a sign-in |
 | Operational safeguards | In progress | No test environment, alerts or traffic limits yet |
-| Editing accountability | Not started | Anyone with the admin password can edit, with no record of who changed what |
+| Editing accountability | Partial | We know who signed in; edits still share one password |
 
 **Recommendation:** suitable for a **controlled pilot (10–20 people)** now.
 Not yet suitable for company-wide rollout until the three items in the next
@@ -72,11 +72,11 @@ section are closed.
 | --- | --- | --- | --- |
 | 1 | **Add our corporate network ranges** | Access is now limited to recognised networks. ChatGPT's ranges are handled automatically, but colleagues using Codex, Claude Code or Cursor connect from our own network, so those ranges must be added or they will be blocked. | 10 minutes |
 | 2 | **Publish the plugin to the CMC workspace** | The one-click install link only works for the person who set it up. Publishing makes it available to colleagues. | 10 minutes |
-| 3 | **Lock the website behind a login** | The browsing site is reachable from any allowed network. A simple shared login adds a second layer. | Small |
+| 3 | **Set the shared password** | The sign-in for Library and Settings is built but switched off until a password is configured. | 5 minutes |
 | 4 | **Add a test environment** | So a bad update can't take the tool down for everyone, and we can undo it quickly. | Small |
 | 5 | **Alerting when something breaks** | Today we'd find out when a user tells us. | Small |
 | 6 | **Protect against heavy traffic** | Nothing currently limits usage from an allowed network. | Small |
-| 7 | **Record who changes the guidance** | One shared password means no accountability and no way to undo a bad edit. | Medium |
+| 7 | **Record who changes the guidance** | We now capture a name at sign-in, but edits still share one password, so it isn't accountability. | Medium |
 | 8 | **Reduce the cost of images** | Sending full images to the assistants uses more of their usage allowance than necessary. | Medium |
 
 ---
@@ -105,8 +105,24 @@ service open.
 - It is fully reversible: removing the configuration settings restores the
   previous behaviour.
 
-**Still to decide:** whether we eventually need proper sign-in (item 3) on top of
+**Still to decide:** whether we eventually need proper sign-in (item 7) on top of
 this, which would give us accountability for who changes what.
+
+---
+
+## Also done: sign-in for the team areas
+
+The Library and Settings pages now sit behind a sign-in. It asks for a **name and
+one shared password**, and the name is shown in the header so we know who is
+using it. The Overview page stays open, so anyone can read what the tool is and
+how to connect.
+
+This is a first step, not full accountability: everyone uses the same password,
+so a name tells us who signed in, not who made a particular change. That is item
+7 on the list above.
+
+It is switched on by setting a password in the deployment settings, and off by
+removing it — no code change either way.
 
 ---
 

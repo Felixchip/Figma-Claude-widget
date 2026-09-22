@@ -94,6 +94,9 @@
   .agent-inline-link { display: inline-flex; align-items: center; gap: 7px; color: var(--primary2); font-weight: 600; text-decoration: none; }
   .agent-inline-link:hover { text-decoration: underline; }
   .agent-inline-link svg { flex: none; }
+  .auth-box { margin-left: 16px; padding-left: 16px; border-left: 1px solid var(--border); font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .auth-box a { color: var(--primary2); text-decoration: none; font-weight: 600; margin-left: 8px; }
+  .auth-box a:hover { text-decoration: underline; }
   .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .lib-toolbar input[type="search"] { flex: 1; min-width: 220px; }
   .lib-count { font-size: 13px; color: var(--content4); }
@@ -230,6 +233,7 @@
     <a href="/settings" data-route="settings">Settings</a>
     <a href="/brainstorm" data-route="brainstorm">Brainstorm</a>
   </nav>
+  <span id="auth-box" class="auth-box hidden"></span>
 </header>
 
 <main>
@@ -608,6 +612,16 @@ async function checkStatus() {
       : `Server up, but no repo configured (set GITHUB_REPO)`;
     if (d.repo) document.getElementById("repo-label").innerHTML = `Repo: <em>${d.repo}</em>`;
     if (d.version) document.getElementById("app-version").textContent = `v${d.version}`;
+
+    const authBox = document.getElementById("auth-box");
+    if (d.auth?.enabled) {
+      authBox.innerHTML = d.auth.user
+        ? `Signed in as <b>${esc(d.auth.user)}</b> <a href="/logout">Sign out</a>`
+        : `<a href="/login">Sign in</a>`;
+      authBox.classList.remove("hidden");
+    } else {
+      authBox.classList.add("hidden");
+    }
 
     const libInfo = document.getElementById("lib-source-info");
     if (libInfo) {

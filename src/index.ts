@@ -9,6 +9,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { z } from "zod";
 import { createStore, type Spec, type SpecStore } from "./store.js";
 import { allowlistEnabled, allowlistStats, clientIp, initAllowlist, ipAllowed } from "./allowlist.js";
+import { authEnabled, checkPassword, clearSessionCookie, createSessionCookie, readSession, safeNext } from "./auth.js";
 import { configReady, loadConfig, type GitHubConfig } from "./github.js";
 import {
   getRepoOverview,
@@ -707,6 +708,7 @@ app.set("trust proxy", true);
 app.use(cors({ exposedHeaders: ["Mcp-Session-Id"] }));
 // Large limit: the Figma plugin uploads batches of base64 PNGs.
 app.use(express.json({ limit: "64mb" }));
+app.use(express.urlencoded({ extended: false }));
 
 // Keep the service out of search engines.
 app.use((_req, res, next) => {
@@ -738,6 +740,64 @@ app.use((req, res, next) => {
   res.status(403).type("text/plain").send(`Access is restricted to recognised networks.\nYour address: ${ip}\n`);
 });
 
+// --- Sign-in for the Library and Settings pages -----------------------------
+// One shared password (APP_PASSWORD) plus a name. Opt-in: with APP_PASSWORD
+// unset, nothing is gated. A valid ADMIN_TOKEN still works for API calls, so
+// the Figma plugin and curl flows are unaffected.
+const PROTECTED_PAGES = ["/library", "/settings"];
+const PROTECTED_API = ["/api/figma/", "/api/components", "/api/aliases", "/api/foundation", "/api/render-guide", "/api/usage"];
+
+function needsAuth(pathname: string): boolean {
+  return (
+    PROTECTED_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
+    PROTECTED_API.some((p) => pathname.startsWith(p))
+  );
+}
+
+app.use((req, res, next) => {
+  if (!authEnabled() || !needsAuth(req.path)) return next();
+  if (isAdmin(req)) return next(); // Bearer ADMIN_TOKEN (Figma plugin, curl)
+  const session = readSession(req.headers.cookie);
+  if (session) {
+    (req as express.Request & { userName?: string }).userName = session.name;
+    return next();
+  }
+  if (req.path.startsWith("/api/")) {
+    res.status(401).json({ error: "Sign in required." });
+    return;
+  }
+  res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+});
+
+app.get("/login", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(path.join(PUBLIC_DIR, "login.html"));
+});
+
+app.post("/login", (req, res) => {
+  const body = req.body ?? {};
+  const name = String(body.name ?? "").trim();
+  const password = String(body.password ?? "");
+  const next = safeNext(body.next);
+  if (!authEnabled()) {
+    res.redirect(next);
+    return;
+  }
+  if (!name || !checkPassword(password)) {
+    res.redirect(`/login?error=1&next=${encodeURIComponent(next)}`);
+    return;
+  }
+  const cookie = createSessionCookie(name);
+  if (cookie) res.setHeader("Set-Cookie", cookie);
+  console.log(`[auth] ${name} signed in`);
+  res.redirect(next);
+});
+
+app.all("/logout", (_req, res) => {
+  res.setHeader("Set-Cookie", clearSessionCookie());
+  res.redirect("/");
+});
+
 app.get("/health", (_req, res) => {
   res.json({ ok: true, specs: store.ready ? null : "initializing", github: configReady(githubCfg) });
 });
@@ -764,7 +824,7 @@ app.get("/api/usage", async (req, res) => {
   res.json(await store.usageStats(days));
 });
 
-app.get("/api/status", async (_req, res) => {
+app.get("/api/status", async (req, res) => {
   const figma = await figmaConnected(store);
   const figmaStatus = figma
     ? (async () => {
@@ -783,6 +843,7 @@ app.get("/api/status", async (_req, res) => {
     storage: store.kind,
     version: VERSION,
     access: allowlistStats(),
+    auth: { enabled: authEnabled(), user: readSession(req.headers.cookie)?.name ?? null },
     library: await store.imageStats(),
     commit: (process.env.RAILWAY_GIT_COMMIT_SHA || "").slice(0, 7) || undefined,
     builtAt: BUILD_TIME,
