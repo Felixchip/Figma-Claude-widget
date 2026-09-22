@@ -668,6 +668,7 @@ async function checkStatus() {
     } else {
       authBox.classList.add("hidden");
     }
+    authChecked = true;
 
     const libInfo = document.getElementById("lib-source-info");
     if (libInfo) {
@@ -748,6 +749,21 @@ document.getElementById("btn-audit-reload").addEventListener("click", loadAudit)
 const loginModal = document.getElementById("login-modal");
 let authOn = false;
 let currentUser = null;
+let authChecked = false;
+
+// Resolves the auth state once, then reports whether we may load a protected
+// page. Raises the modal when we may not.
+async function ensureSignedIn() {
+  if (!authChecked) {
+    await checkStatus();
+    authChecked = true;
+  }
+  if (authOn && !currentUser) {
+    openLogin();
+    return false;
+  }
+  return true;
+}
 
 function openLogin() {
   if (!authOn || currentUser) return;
@@ -839,13 +855,13 @@ function showSection(sectionName) {
   }
 }
 
-function loadForRoute(route, subtab) {
+async function loadForRoute(route, subtab) {
   showSection(route.section);
   document.querySelectorAll("nav a").forEach(x => x.classList.toggle("active", x.dataset.route === route.section));
-  const needsSignIn = route.section === "library" || route.section === "settings";
-  if (needsSignIn && authOn && !currentUser) {
-    openLogin();
-    return;
+  if (route.section === "library" || route.section === "settings") {
+    // Make sure we know the auth state before loading protected data, otherwise
+    // the page renders signed-out errors behind the modal.
+    if (!(await ensureSignedIn())) return;
   }
   if (route.section === "settings") {
     restoreAdminToken();
@@ -998,6 +1014,9 @@ async function verifyFigma() {
 async function refreshFigma() {
   try {
     const r = await fetch(mcpUrl + "/api/figma/status");
+    // 401 (signed out) or any other failure: leave it to the sign-in modal
+    // rather than claiming a configuration problem.
+    if (!r.ok) return;
     const d = await r.json();
     const connected = document.getElementById("figma-connected");
     const notConnected = document.getElementById("figma-not-connected");
@@ -1009,7 +1028,9 @@ async function refreshFigma() {
     } else {
       connected.classList.add("hidden");
       notConnected.classList.remove("hidden");
-      document.getElementById("figma-err").textContent = d.configured ? "" : "Figma OAuth not configured (set FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET, PUBLIC_BASE_URL).";
+      document.getElementById("figma-err").textContent = d.configured
+        ? ""
+        : "Figma OAuth is not configured. Either set FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET and PUBLIC_BASE_URL, or connect with a personal access token below.";
     }
   } catch (e) {
     document.getElementById("figma-err").textContent = "Cannot reach server";
@@ -1045,7 +1066,6 @@ if (new URLSearchParams(window.location.search).get("figma") === "connected") {
 }
 
 checkStatus();
-refreshFigma();
 
 // Gently drop accordion bodies open/closed via a grid-template-rows transition.
 function animateAccordion(head, body, open) {
