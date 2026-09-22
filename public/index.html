@@ -97,6 +97,13 @@
   .auth-box { margin-left: 16px; padding-left: 16px; border-left: 1px solid var(--border); font-size: 13px; color: var(--muted); white-space: nowrap; }
   .auth-box a { color: var(--primary2); text-decoration: none; font-weight: 600; margin-left: 8px; }
   .auth-box a:hover { text-decoration: underline; }
+  .audit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .audit-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--content4); font-weight: 600; padding: 0 14px 8px 0; border-bottom: 1px solid var(--border); }
+  .audit-table td { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--outline5); color: var(--muted); vertical-align: top; }
+  .audit-table tr:last-child td { border-bottom: none; }
+  .audit-actor { color: var(--text); font-weight: 600; white-space: nowrap; }
+  .audit-when { color: var(--content4); white-space: nowrap; }
+  .audit-action { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--primary2); }
   .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .lib-toolbar input[type="search"] { flex: 1; min-width: 220px; }
   .lib-count { font-size: 13px; color: var(--content4); }
@@ -310,6 +317,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
       <button class="subtab" data-subtab="settings-rules" role="tab">Component rules</button>
       <button class="subtab" data-subtab="settings-foundation" role="tab">Foundation</button>
       <button class="subtab" data-subtab="settings-render" role="tab">Render guide</button>
+      <button class="subtab" data-subtab="settings-activity" role="tab">Activity</button>
     </div>
 
     <div id="settings-home" class="subpanel">
@@ -442,6 +450,18 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
             <span id="render-status" style="font-size:13px;color:var(--muted)"></span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="settings-activity" class="subpanel hidden">
+      <div class="card">
+        <h3>Activity</h3>
+        <p>Who changed what. The name comes from the sign-in, so changes are tied to a person rather than just "someone with the token".</p>
+        <div class="toolbar" style="margin:12px 0">
+          <button id="btn-audit-reload" class="secondary">Reload</button>
+          <span id="audit-status" style="font-size:13px;color:var(--muted)"></span>
+        </div>
+        <div id="audit-list"></div>
       </div>
     </div>
   </section>
@@ -653,6 +673,51 @@ async function loadUsage() {
   }
 }
 
+async function loadAudit() {
+  const el = document.getElementById("audit-list");
+  const status = document.getElementById("audit-status");
+  if (!el) return;
+  status.textContent = "Loading…";
+  try {
+    const r = await fetch(mcpUrl + "/api/audit?limit=200");
+    if (r.status === 401) {
+      status.textContent = "";
+      el.innerHTML = '<p style="color:var(--muted)">Sign in to see activity.</p>';
+      return;
+    }
+    const events = (await r.json()).events || [];
+    status.textContent = events.length ? `${events.length} event(s)` : "";
+    if (!events.length) {
+      el.innerHTML = '<p style="color:var(--muted)">No changes recorded yet.</p>';
+      return;
+    }
+    el.innerHTML =
+      '<table class="audit-table"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead><tbody>' +
+      events
+        .map(
+          (e) => `<tr>
+            <td class="audit-when">${esc(fmtWhen(e.at))}</td>
+            <td class="audit-actor">${esc(e.actor)}${e.source === "api" ? ' <span class="lib-badge">API</span>' : ""}</td>
+            <td><span class="audit-action">${esc(e.action)}</span></td>
+            <td>${esc(e.target || "—")}</td>
+            <td>${esc(e.summary || "")}</td>
+          </tr>`
+        )
+        .join("") +
+      "</tbody></table>";
+  } catch {
+    status.textContent = "";
+    el.innerHTML = '<p style="color:var(--red)">Could not load activity.</p>';
+  }
+}
+
+function fmtWhen(iso) {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? String(iso) : d.toLocaleString();
+}
+
+document.getElementById("btn-audit-reload").addEventListener("click", loadAudit);
+
 // How-to-use modal
 const howModal = document.getElementById("how-modal");
 function toggleHow(open) {
@@ -703,7 +768,7 @@ function loadForRoute(route, subtab) {
 function navigate(path, push = true) {
   if (path === "/") return loadForRoute(ROUTES.overview, null);
   if (path.startsWith("/settings")) {
-    const sub = { "/rules": "settings-rules", "/foundation": "settings-foundation", "/render": "settings-render" }[
+    const sub = { "/rules": "settings-rules", "/foundation": "settings-foundation", "/render": "settings-render", "/activity": "settings-activity" }[
       path.replace(/^\/settings/, "").replace(/\/$/, "")
     ];
     return loadForRoute(ROUTES.settings, sub || "settings-home");
@@ -745,10 +810,12 @@ function switchSubtab(name, silent) {
   if (name === "settings-rules") loadComponents();
   if (name === "settings-foundation") loadFoundationEditor();
   if (name === "settings-render") loadRenderGuide();
+  if (name === "settings-activity") loadAudit();
   if (!silent) {
     const path = name === "settings-rules" ? "/settings/rules"
       : name === "settings-foundation" ? "/settings/foundation"
       : name === "settings-render" ? "/settings/render"
+      : name === "settings-activity" ? "/settings/activity"
       : "/settings";
     history.pushState({}, "", path);
   }

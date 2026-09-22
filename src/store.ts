@@ -52,6 +52,8 @@ export interface SpecStore {
   setPreferredTheme(theme: string): Promise<void>;
   logUsage(event: { tool: string; detail?: string; source?: string }): Promise<void>;
   usageStats(days?: number): Promise<UsageStats>;
+  logAudit(event: Omit<AuditEvent, "at">): Promise<void>;
+  auditEvents(limit?: number): Promise<AuditEvent[]>;
   getImage(nodeId: string, theme?: string): Promise<ComponentImage | undefined>;
   saveImage(img: ComponentImage): Promise<void>;
   listImages(): Promise<ComponentImageMeta[]>;
@@ -81,6 +83,16 @@ export type UsageStats = {
   total: number;
   tools: { tool: string; count: number }[];
   recent: { tool: string; detail: string; source: string; at: string }[];
+};
+
+export type AuditEvent = {
+  at: string;
+  actor: string;
+  action: string;
+  target: string;
+  summary: string;
+  source: string;
+  ip: string;
 };
 
 function toSpec(row: any): Spec {
@@ -163,6 +175,19 @@ class PostgresStore implements SpecStore {
       )
     `);
     await this.pool.query(`CREATE INDEX IF NOT EXISTS usage_events_at_idx ON usage_events (at DESC)`);
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS audit_events (
+        id BIGSERIAL PRIMARY KEY,
+        at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        actor TEXT NOT NULL DEFAULT '',
+        action TEXT NOT NULL,
+        target TEXT NOT NULL DEFAULT '',
+        summary TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT '',
+        ip TEXT NOT NULL DEFAULT ''
+      )
+    `);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS audit_events_at_idx ON audit_events (at DESC)`);
     this.ready = true;
   }
 
@@ -251,6 +276,38 @@ class PostgresStore implements SpecStore {
         at: r.at instanceof Date ? r.at.toISOString() : String(r.at),
       })),
     };
+  }
+
+  async logAudit(event: Omit<AuditEvent, "at">): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO audit_events (actor, action, target, summary, source, ip)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        event.actor.slice(0, 80),
+        event.action.slice(0, 80),
+        event.target.slice(0, 120),
+        event.summary.slice(0, 300),
+        event.source.slice(0, 20),
+        event.ip.slice(0, 60),
+      ]
+    );
+  }
+
+  async auditEvents(limit = 200): Promise<AuditEvent[]> {
+    const res = await this.pool.query(
+      `SELECT at, actor, action, target, summary, source, ip
+         FROM audit_events ORDER BY at DESC LIMIT $1`,
+      [Math.min(1000, Math.max(1, limit))]
+    );
+    return res.rows.map((r) => ({
+      at: r.at instanceof Date ? r.at.toISOString() : String(r.at),
+      actor: r.actor ?? "",
+      action: r.action ?? "",
+      target: r.target ?? "",
+      summary: r.summary ?? "",
+      source: r.source ?? "",
+      ip: r.ip ?? "",
+    }));
   }
 
   async saveUsageRules(rules: string): Promise<void> {
@@ -431,6 +488,7 @@ class MemoryStore implements SpecStore {
   private images = new Map<string, ComponentImage>();
   private targets?: { targets: RenderTarget[]; fileVersion: string };
   private usage: { tool: string; detail: string; source: string; at: string }[] = [];
+  private audit: AuditEvent[] = [];
   readonly kind = "memory" as const;
   ready = true;
 
@@ -564,6 +622,15 @@ class MemoryStore implements SpecStore {
       tools: [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([tool, count]) => ({ tool, count })),
       recent: this.usage.slice(0, 25),
     };
+  }
+
+  async logAudit(event: Omit<AuditEvent, "at">): Promise<void> {
+    this.audit.unshift({ ...event, at: new Date().toISOString() });
+    if (this.audit.length > 2000) this.audit.length = 2000;
+  }
+
+  async auditEvents(limit = 200): Promise<AuditEvent[]> {
+    return this.audit.slice(0, Math.min(1000, Math.max(1, limit)));
   }
 
   async getImage(nodeId: string, theme = ""): Promise<ComponentImage | undefined> {

@@ -294,6 +294,16 @@ How it behaves:
   cookie, so the Figma plugin and `curl` flows are unaffected.
 - The Overview stays public, as do `/mcp`, `/health` and `/api/status`.
 
+### Audit log
+
+Every change is recorded with **who made it**: the name given at sign-in, or
+`admin token` for calls made with a Bearer token (the Figma plugin, `curl`).
+Covered: component rules, foundation, render guide, aliases, registry sync,
+preferred theme, Figma connect/library/disconnect, image upload/clear, render
+start, and spec publishing (attributed to `figma widget`).
+
+Read it at `GET /api/audit` (admin) or in **Settings → Activity**.
+
 ## Restricting access
 
 The service is public by default. To limit it to recognised networks, set:
@@ -331,6 +341,7 @@ To turn it off again, remove the variables and redeploy.
 | `POST /api/figma/upload` | Plugin uploads themed renders (admin) |
 | `DELETE /api/figma/images` | Clear the render cache (admin; `?theme=` clears one theme) |
 | `GET /api/usage` | Anonymous tool-call counts (`?days=7`) |
+| `GET /api/audit` | Who changed what (`?limit=200`), admin only |
 | `GET /api/status` | Server + repo status, version and library stats |
 | `GET /health` | Health check |
 

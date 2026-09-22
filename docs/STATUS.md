@@ -58,7 +58,7 @@ in the code repository. It only reads.
 | Content and rules | Ready | Editable by the team; no developer needed |
 | Access control | In progress | Networks restricted; Library and Settings now behind a sign-in |
 | Operational safeguards | In progress | No test environment, alerts or traffic limits yet |
-| Editing accountability | Partial | We know who signed in; edits still share one password |
+| Editing accountability | Mostly there | Every change is now recorded against a name; everyone still shares one token |
 
 **Recommendation:** suitable for a **controlled pilot (10–20 people)** now.
 Not yet suitable for company-wide rollout until the three items in the next
@@ -75,7 +75,7 @@ section are closed.
 | 3 | **Add a test environment** | So a bad update can't take the tool down for everyone, and we can undo it quickly. | Small |
 | 4 | **Alerting when something breaks** | Today we'd find out when a user tells us. | Small |
 | 5 | **Protect against heavy traffic** | Nothing currently limits usage from an allowed network. | Small |
-| 6 | **Record who changes the guidance** | We capture a name at sign-in, but everyone shares one password, so it isn't full accountability. | Medium |
+| 6 | **Strengthen identity** | Changes are now recorded against a name, but names are self-declared and everyone shares one token. Per-person sign-in would make it verifiable. | Medium |
 | 7 | **Reduce the cost of images** | Sending full images to the assistants uses more of their usage allowance than necessary. | Medium |
 
 ---
@@ -122,8 +122,24 @@ connect.
 This is on whenever an admin token is configured, and off when it isn't — no
 separate password to manage, and no code change either way.
 
-It is not yet full accountability: everyone shares the same token, so the name
-tells us who signed in, not who made a particular change. That is item 6 above.
+## Also done: an activity log
+
+Every change now records **who made it**. The name comes from the sign-in, so
+the list reads like "Xavier changed the preferred theme to Light" rather than
+"someone with the token changed something". Changes made by the Figma plugin or
+by a script are attributed to the admin token instead, so they are still
+distinguishable.
+
+It covers component rules, the foundation, the render guide, name matches, the
+registry sync, the preferred theme, Figma connection changes, image uploads and
+clears, render runs, and published specs.
+
+You can read it in **Settings → Activity**, or by asking for the activity
+endpoint.
+
+**Still not full accountability:** the name is typed in at sign-in rather than
+verified, and everyone shares the same token. It tells us who said they were
+making a change. Per-person sign-in is item 6 above.
 
 ---
 

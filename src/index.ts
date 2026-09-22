@@ -710,6 +710,30 @@ app.use(cors({ exposedHeaders: ["Mcp-Session-Id"] }));
 app.use(express.json({ limit: "64mb" }));
 app.use(express.urlencoded({ extended: false }));
 
+// --- Audit log ---------------------------------------------------------------
+// Every change records who made it. The actor is the name captured at sign-in,
+// or "admin token" for calls made with a Bearer token (Figma plugin, curl).
+function actorName(req: express.Request): string {
+  const session = readSession(req.headers.cookie);
+  if (session) return session.name;
+  if (isAdmin(req)) return "admin token";
+  return "unknown";
+}
+
+function audit(req: express.Request, action: string, target = "", summary = "", actorOverride?: string): void {
+  void store
+    .logAudit({
+      actor: actorOverride ?? actorName(req),
+      action,
+      target,
+      summary,
+      source: req.headers.authorization ? "api" : "web",
+      ip: clientIp(req.headers as Record<string, unknown>, req.socket.remoteAddress),
+    })
+    .catch((err) => console.warn(`[audit] ${(err as Error).message}`));
+}
+
+// GET /api/audit is registered below, after the auth middleware.
 // Keep the service out of search engines.
 app.use((_req, res, next) => {
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
@@ -744,7 +768,7 @@ app.use((req, res, next) => {
 // The password is ADMIN_TOKEN, so only admins can see those pages or change
 // anything. Opt-in: with ADMIN_TOKEN unset, nothing is gated.
 const PROTECTED_PAGES = ["/library", "/settings"];
-const PROTECTED_API = ["/api/figma/", "/api/components", "/api/aliases", "/api/foundation", "/api/render-guide", "/api/usage"];
+const PROTECTED_API = ["/api/figma/", "/api/components", "/api/aliases", "/api/foundation", "/api/render-guide", "/api/usage", "/api/audit"];
 
 function needsAuth(pathname: string): boolean {
   return (
@@ -814,7 +838,14 @@ app.put("/api/preferred-theme", async (req, res) => {
   }
   const theme = typeof req.body?.theme === "string" ? req.body.theme : "";
   await store.setPreferredTheme(theme);
+  audit(req, "preferred-theme.update", theme || "default", `Preferred theme set to ${theme || "default"}`);
   res.json({ ok: true, theme });
+});
+
+// GET /api/audit — who changed what (admin).
+app.get("/api/audit", async (req, res) => {
+  const limit = Math.min(1000, Math.max(1, Number(req.query.limit) || 200));
+  res.json({ events: await store.auditEvents(limit) });
 });
 
 // GET /api/usage — tool-call counts for adoption stats (aggregate only).
@@ -912,6 +943,7 @@ app.post("/api/figma/library", async (req, res) => {
   try {
     const file = await figmaFile(s.token, key);
     await store.saveFigmaSettings({ ...s, fileKey: key, fileName: file.name ?? "Untitled" });
+    audit(req, "figma.library", key, `Picked library ${file.name ?? "Untitled"}`);
     res.json({ fileKey: key, fileName: file.name ?? "Untitled", pages: (file.document?.children ?? []).map((p: any) => p.name) });
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
@@ -934,6 +966,7 @@ app.post("/api/figma/pat", async (req, res) => {
       userName: me.handle ?? me.email ?? "Figma user",
       connectedAt: new Date().toISOString(),
     });
+    audit(req, "figma.connect", "", `Connected with a personal access token as ${me.handle ?? me.email ?? "Figma user"}`);
     res.json({ ok: true, userName: me.handle ?? me.email ?? "Figma user" });
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
@@ -1020,6 +1053,7 @@ app.post("/api/figma/upload", async (req, res) => {
       errors.push({ nodeId: String(im?.nodeId ?? "?"), error: (err as Error).message });
     }
   }
+  audit(req, "images.upload", theme || "default", `${saved} image(s) uploaded from the Figma plugin`);
   res.json({ ok: true, theme, saved, failed: errors.length, errors: errors.slice(0, 20) });
 });
 
@@ -1040,10 +1074,12 @@ app.delete("/api/figma/images", async (req, res) => {
         removed++;
       }
     }
+    audit(req, "images.clear", theme || "default", `${removed} image(s) removed`);
     res.json({ ok: true, theme, removed });
     return;
   }
   await store.clearImages();
+  audit(req, "images.clear", "", "Cleared every rendered image");
   res.json({ ok: true, cleared: true });
 });
 
@@ -1064,6 +1100,7 @@ app.post("/api/figma/render", async (req, res) => {
     return;
   }
   renderJob = { running: true, total: 0, done: 0, rendered: 0, failed: 0, startedAt: new Date().toISOString(), errors: [] };
+  audit(req, "render.start", "", "Started the component render warm-up");
   // Fire and forget: do not await, so the HTTP request returns immediately.
   void runRenderJob(token, fileKey);
   res.status(202).json({ started: true, job: renderJob, statusUrl: "/api/figma/render/status" });
@@ -1093,8 +1130,9 @@ app.get("/api/figma/status", async (_req, res) => {
   });
 });
 
-app.post("/api/figma/disconnect", async (_req, res) => {
+app.post("/api/figma/disconnect", async (req, res) => {
   await store.clearFigmaSettings();
+  audit(req, "figma.disconnect", "", "Disconnected the Figma library");
   res.json({ ok: true });
 });
 
@@ -1127,11 +1165,13 @@ app.post("/api/figma/verify", async (_req, res) => {
 
 // --- Rules REST (component-based usage rules) --------------------------------
 
+// Admin = a Bearer ADMIN_TOKEN, or a signed-in session. The sign-in password *is*
+// the admin token, so a valid session means the caller knew it.
 function isAdmin(req: express.Request): boolean {
   const token = process.env.ADMIN_TOKEN;
   if (!token) return false;
-  const auth = req.headers.authorization ?? "";
-  return auth === `Bearer ${token}`;
+  if (req.headers.authorization === `Bearer ${token}`) return true;
+  return !!readSession(req.headers.cookie);
 }
 
 // Rebuild the registry from live Figma + GitHub sources, preserving stored rules.
@@ -1173,6 +1213,7 @@ app.put("/api/aliases", async (req, res) => {
     .map((a: any) => ({ figma: String(a?.figma ?? "").trim(), github: String(a?.github ?? "").trim() }))
     .filter((a: ComponentAlias) => a.figma && a.github);
   await store.saveAliases(aliases as unknown as unknown[]);
+  audit(req, "aliases.update", "", `${(aliases as unknown[]).length} name match(es)`);
   res.json({ ok: true, aliases });
 });
 
@@ -1193,6 +1234,7 @@ app.put("/api/foundation", async (req, res) => {
     return;
   }
   await store.saveFoundation(foundation);
+  audit(req, "foundation.update", "", `${foundation.length} characters`);
   res.json({ ok: true });
 });
 
@@ -1219,6 +1261,7 @@ app.put("/api/render-guide", async (req, res) => {
     return;
   }
   await store.saveRenderGuide(guide);
+  audit(req, "render-guide.update", "", `${guide.length} characters`);
   res.json({ ok: true });
 });
 
@@ -1230,6 +1273,7 @@ app.post("/api/components/sync", async (req, res) => {
   }
   try {
     const { entries, report } = await syncRegistry();
+    audit(req, "components.sync", "", `${entries.length} components discovered`);
     res.json({ components: entries, report });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -1252,6 +1296,7 @@ app.put("/api/components/:key/rule", async (req, res) => {
   }
   existing[idx] = { ...existing[idx], rule };
   await store.saveRegistry(existing as unknown as unknown[]);
+  audit(req, "component-rule.update", key, rule ? `${rule.length} characters` : "cleared");
   res.json({ ok: true, component: existing[idx] });
 });
 
@@ -1276,6 +1321,7 @@ app.post("/api/specs", async (req, res) => {
     updatedAt: now,
   };
   await store.create(spec);
+  audit(req, "spec.publish", spec.id, "Published from the Figma widget", "figma widget");
   res.status(201).json({ id: spec.id });
 });
 
