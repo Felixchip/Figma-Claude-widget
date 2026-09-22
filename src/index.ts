@@ -740,10 +740,9 @@ app.use((req, res, next) => {
   res.status(403).type("text/plain").send(`Access is restricted to recognised networks.\nYour address: ${ip}\n`);
 });
 
-// --- Sign-in for the Library and Settings pages -----------------------------
-// One shared password (APP_PASSWORD) plus a name. Opt-in: with APP_PASSWORD
-// unset, nothing is gated. A valid ADMIN_TOKEN still works for API calls, so
-// the Figma plugin and curl flows are unaffected.
+// --- Admin sign-in for the Library and Settings pages ------------------------
+// The password is ADMIN_TOKEN, so only admins can see those pages or change
+// anything. Opt-in: with ADMIN_TOKEN unset, nothing is gated.
 const PROTECTED_PAGES = ["/library", "/settings"];
 const PROTECTED_API = ["/api/figma/", "/api/components", "/api/aliases", "/api/foundation", "/api/render-guide", "/api/usage"];
 
