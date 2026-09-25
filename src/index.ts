@@ -21,7 +21,15 @@ import {
   runTool,
 } from "./tools.js";
 import { RULES_PREAMBLE, DEFAULT_FOUNDATION, DEFAULT_RENDER_GUIDE, RULES_RESOURCE_URI } from "./rules.js";
-import { buildRegistry, rulesToMarkdown, normalizeComponentKey, type ComponentEntry, type ComponentAlias } from "./registry.js";
+import {
+  buildRegistry,
+  componentIndexMarkdown,
+  componentRuleMarkdown,
+  rulesToMarkdown,
+  normalizeComponentKey,
+  type ComponentEntry,
+  type ComponentAlias,
+} from "./registry.js";
 import {
   exchangeFigmaCode,
   figmaAuthUrl,
@@ -96,11 +104,27 @@ function toContent(result: { text: string; isError?: boolean }) {
   };
 }
 
-async function fullRules(): Promise<string> {
-  // Compose: static preamble (guardrails/platform/design-sense) + editable
-  // foundation + editable render guide + per-component rules.
+// The always-read rules: guardrails, routes, platform, design sense, foundation
+// and the render guide, plus a component index. Kept deliberately short — the
+// per-component detail used to make this ~68KB, which buried the parts that
+// matter. Fetch a component's detail with get_component_rule.
+async function coreRules(): Promise<string> {
+  const entries = await registryEntries();
+  const foundation = (await store.getFoundation()) || DEFAULT_FOUNDATION;
+  const renderGuide = (await store.getRenderGuide()) || DEFAULT_RENDER_GUIDE;
+  return `${RULES_PREAMBLE}\n\n${foundation.trim()}\n\n${renderGuide.trim()}\n\n${componentIndexMarkdown(entries)}`;
+}
+
+async function registryEntries(): Promise<ComponentEntry[]> {
   const existing = (await store.getRegistry()) as ComponentEntry[];
-  const entries = existing.length ? existing : (await buildRegistry(githubCfg, store, [], await loadAliases())).entries;
+  if (existing.length) return existing;
+  return (await buildRegistry(githubCfg, store, [], await loadAliases())).entries;
+}
+
+// The full document, including every component's detail. Used by the web UI and
+// available on request; not what agents are handed by default.
+async function fullRules(): Promise<string> {
+  const entries = await registryEntries();
   const foundation = (await store.getFoundation()) || DEFAULT_FOUNDATION;
   const renderGuide = (await store.getRenderGuide()) || DEFAULT_RENDER_GUIDE;
   return rulesToMarkdown(`${RULES_PREAMBLE}\n\n${foundation.trim()}\n\n${renderGuide.trim()}`, entries);
@@ -342,13 +366,14 @@ function createMcpServer(): McpServer {
         "2. NO hallucinations: do not guess at component APIs, props, or tokens, verify first (get_figma_* / list_components / get_component / get_repo_structure).\n" +
         "3. When in doubt, STOP and ask the user.\n\n" +
         "WORKFLOW, follow for every request:\n" +
-        "1. Read the mandatory rules (resource design://rules or the \"list_rules\" tool).\n" +
-        "2. If designing: read the Figma library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).\n" +
-        "3. If building: inspect the components repo (list_components, get_component, get_repo_structure) and any published specs (list_specs, get_spec).\n" +
-        "4. If rendering an image: read the Render Guide (in list_rules) and compose with the palette/style above.\n" +
-        "5. Plan the UI using ONLY components and tokens that exist in our system.\n" +
-        "6. If a needed component does not exist, STOP and ask the user, do not invent one.\n" +
-        "7. Output by route: DESIGN IN FIGMA -> create the nodes via Figma's official MCP (ask for the file link if needed); " +
+        "1. Read the mandatory rules (resource design://rules or the \"list_rules\" tool). This is the short document: the non-negotiables, guardrails, routes, foundation and the component index.\n" +
+        "2. Before using any component, fetch its detail with get_component_rule (anatomy, variants, states, do/don't).\n" +
+        "3. If designing: read the Figma library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens), and place instances of those components rather than drawing shapes.\n" +
+        "4. If building: inspect the components repo (list_components, get_component, get_repo_structure) and any published specs (list_specs, get_spec).\n" +
+        "5. If rendering an image: fetch get_component_render for every element before composing, and follow the Render Guide in list_rules.\n" +
+        "6. Plan the UI using ONLY components and tokens that exist in our system.\n" +
+        "7. If a needed component does not exist, STOP and ask the user, do not invent one.\n" +
+        "8. Output by route: DESIGN IN FIGMA -> create the nodes via Figma's official MCP (ask for the file link if needed); " +
         "BUILD -> SwiftUI composed from real components; RENDER -> the actual mockup image. Never ask for a Figma link " +
         "when the user asked for an image.",
     }
@@ -402,7 +427,7 @@ function createMcpServer(): McpServer {
       mimeType: "text/markdown",
     },
     async () => ({
-      contents: [{ uri: RULES_RESOURCE_URI, mimeType: "text/markdown", text: await fullRules() }],
+      contents: [{ uri: RULES_RESOURCE_URI, mimeType: "text/markdown", text: await coreRules() }],
     })
   );
 
@@ -411,15 +436,47 @@ function createMcpServer(): McpServer {
     {
       title: "List design system rules",
       description:
-        "Read the MANDATORY design-system guardrails and component usage rules. Call this before building anything. " +
-        "Rules apply to BOTH sides: default to the Figma library (get_figma_*) when designing, and to the code repo " +
-        "(list_components / get_component) when building. Guardrails: NEVER create/add/invent components on either " +
-        "side, use ONLY the components in this design system. No hallucinations, verify components/token exist. " +
-        "When in doubt, ask the user.",
+        "Read the MANDATORY rules before building anything: the non-negotiables, guardrails, the three delivery routes, " +
+        "platform, design sense, the System Foundation, the Render Guide, and the index of every component that exists. " +
+        "This is the short, always-read document — for a specific component's detailed rules (anatomy, variants, states, " +
+        "do/don't) call get_component_rule. Guardrails: NEVER create/add/invent components, use ONLY the components in " +
+        "this design system, verify rather than guess, and ask the user when in doubt.",
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
     },
-    async () => ({ content: [{ type: "text" as const, text: await fullRules() }] })
+    async () => ({ content: [{ type: "text" as const, text: await coreRules() }] })
+  );
+
+  server.registerTool(
+    "get_component_rule",
+    {
+      title: "Get one component's detailed rules",
+      description:
+        "Get the detailed usage rules for a single component: anatomy, variants, interactive states, sizing, accessibility, " +
+        "and do/don't guidance. Call this for every component you are about to use — the main rules doc only lists the " +
+        "component names. Example: get_component_rule({ component: \"Chip\" }).",
+      inputSchema: {
+        component: z.string().describe("Component name, e.g. 'Button', 'Chip', 'Toggle switch'."),
+      },
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ component }) => {
+      const entries = await registryEntries();
+      const md = componentRuleMarkdown(entries, component);
+      if (!md) {
+        const names = entries.map((e) => e.label).sort((a, b) => a.localeCompare(b)).join(", ");
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `No documented rules for '${component}'. Components: ${names}. If it has no rules, ask the user how it should behave rather than guessing.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      return { content: [{ type: "text" as const, text: md }] };
+    }
   );
 
   // --- Specs tools ---------------------------------------------------------

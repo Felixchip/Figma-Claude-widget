@@ -218,6 +218,47 @@ export async function buildRegistry(
 // Build the markdown rules doc an agent reads: static preamble + one section per
 // component that has a rule defined. Components without a rule are listed in a
 // short "not yet documented" line so agents know they exist but have no guidance.
+// The always-read rules are deliberately short: guardrails, foundation and the
+// render guide. Per-component detail lives behind componentRuleMarkdown() so a
+// 60KB document can't bury the parts that matter.
+export function componentIndexMarkdown(entries: ComponentEntry[]): string {
+  if (!entries.length) return "";
+  const documented = entries.filter((e) => e.rule.trim());
+  const names = entries.map((e) => e.label).sort((a, b) => a.localeCompare(b));
+  const lines = [
+    "\n# Component index\n",
+    `These are the only components that exist (${entries.length}). Every element must be one of them.\n`,
+    names.map((n) => `- ${n}`).join("\n"),
+  ];
+  if (documented.length) {
+    lines.push(
+      `\n${documented.length} of them have detailed usage rules (anatomy, variants, states, do/don't). ` +
+        `Fetch one with **get_component_rule** before using it, e.g. get_component_rule({ component: "${documented[0].label}" }).`
+    );
+  }
+  return lines.join("\n");
+}
+
+// Detailed markdown for one component (or a short list if the query is ambiguous).
+export function componentRuleMarkdown(entries: ComponentEntry[], query: string): string | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+
+  const withRule = entries.filter((e) => e.rule.trim());
+  const match =
+    withRule.find((e) => e.label.toLowerCase() === q) ||
+    withRule.find((e) => e.key === q) ||
+    withRule.find((e) => e.label.toLowerCase().includes(q)) ||
+    withRule.find((e) => e.sources.some((s) => s.name.toLowerCase().includes(q)));
+
+  if (!match) return null;
+
+  const refs = match.sources
+    .map((s) => `${s.source === "figma" ? "Figma" : "GitHub"}: ${s.name}`)
+    .join(" · ");
+  return `## Component: ${match.label}${refs ? `\n\n_${refs}_` : ""}\n\n${match.rule.trim()}`;
+}
+
 export function rulesToMarkdown(preamble: string, entries: ComponentEntry[]): string {
   const documented = entries.filter((e) => e.rule.trim());
   const undocumented = entries.filter((e) => !e.rule.trim());

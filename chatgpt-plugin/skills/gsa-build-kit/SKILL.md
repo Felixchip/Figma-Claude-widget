@@ -13,13 +13,27 @@ SwiftUI, or producing a mockup image.
 Before doing anything else, load the rules and the library:
 
 1. Call `list_rules` and follow it. It is mandatory and overrides your defaults.
-2. Call `get_figma_library` and `list_figma_components` to see the real components.
-3. Call `get_figma_tokens` for the colour, spacing, radius and type values.
-4. Call `list_components` and `get_component` for the SwiftUI implementations.
-5. Call `list_specs` / `get_spec` if the user refers to a published product spec.
+   It is deliberately short: the non-negotiables, the three routes, the System
+   Foundation, the Render Guide, and the index of every component that exists.
+2. Call `get_component_rule` for **each component you are about to use** — it has
+   the anatomy, variants, states and do/don't guidance that `list_rules` only
+   indexes.
+3. Call `get_figma_library` and `list_figma_components` to see the real components.
+4. Call `get_figma_tokens` for the colour, spacing, radius and type values.
+5. Call `list_components` and `get_component` for the SwiftUI implementations.
+6. Call `list_specs` / `get_spec` if the user refers to a published product spec.
 
 Never invent a component, token, prop, colour or spacing value. If something you
 need does not exist in the library, stop and ask the user.
+
+## The two ways this usually goes wrong
+
+- **Designing in Figma:** drawing rectangles, frames or text as stand-ins for
+  components that exist. Place **instances** of the GSA library components
+  instead. Check the component list first.
+- **Generating an image:** drawing components from scratch. Fetch
+  `get_component_render` for **every** element before you compose. If you have
+  not fetched its image, you do not know what it looks like.
 
 ## Choose the route
 

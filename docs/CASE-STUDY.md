@@ -63,7 +63,7 @@ exports themed renders, and a packaged ChatGPT/Codex plugin.
 
 | | |
 | --- | --- |
-| MCP tools | 14, all read-only |
+| MCP tools | 15, all read-only |
 | Components / variants | 544 across 32 component groups |
 | Rendered images | 1,632 (544 × default / Light / Dark), 2.4 MB |
 | Figma file | 1,160 variants scanned, noise-filtered and deduped |
@@ -218,7 +218,7 @@ was almost always *less*.
 
 ## Where it is now
 
-**Done:** MCP server (14 tools, stateless, skills over MCP) · Figma integration
+**Done:** MCP server (15 tools, stateless, skills over MCP) · Figma integration
 with noise filtering and dedupe · 1,632 themed renders with a background warm-up ·
 Figma export plugin · rules/foundation/render-guide content system · web app
 (Overview, Library, Settings, Brainstorm) · ChatGPT/Codex plugin with both

@@ -56,8 +56,9 @@ The connected token + library are stored server-side (Postgres) and exposed to a
 The design-system component rules (`docs/ComponentUsage.md`) are binding for any agent connected to the MCP. They are delivered through the protocol itself:
 
 - **Server `instructions`** — every client receives a directive in the `initialize` response telling the agent it MUST read and abide by the rules before building.
-- **Resource `design://rules`** — the full rules doc, readable via MCP `resources/read`.
-- **`list_rules` tool** — agents can pull the full doc on demand.
+- **Resource `design://rules`** — the always-read rules, readable via MCP `resources/read`.
+- **`list_rules` tool** — the same short document: non-negotiables, guardrails, the three routes, platform, foundation, render guide, and a component index.
+- **`get_component_rule` tool** — one component's detail (anatomy, variants, states, do/don't). The rules doc only indexes components; this is where the specifics live.
 - **Rules reminder** — `list_components` and `get_component` prepend a reminder that the rules apply.
 
 ## Repository layout
@@ -102,7 +103,7 @@ Component usage rules are **generated per component**, not one big document:
 - Components are discovered automatically from the **Figma library** and the **GitHub repo** and merged by name (a `GSA` prefix is stripped for matching, so `GSAButton` and Figma `Button` become one entry).
 - Every discovered component starts with an **empty rule**. An admin defines each rule in the web UI (Settings → Component usage rules) or via `PUT /api/components/:key/rule`.
 - `POST /api/components/sync` re-discovers components from the live sources; previously saved rules are preserved by key.
-- When an agent reads `list_rules` / `design://rules`, they get the static guardrails/platform preamble plus one section per component that has a rule, and a list of components that still have no rule defined.
+- `list_rules` / `design://rules` return the short always-read document plus an index of every component. Per-component detail is fetched with `get_component_rule`, so a large rule set can never bury the top-level constraints. `GET /api/rules` still returns the full assembled document.
 
 No code change or redeploy is needed to update component guidance. Set `ADMIN_TOKEN` to protect sync/edits.
 
