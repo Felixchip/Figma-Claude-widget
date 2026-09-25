@@ -3,6 +3,28 @@
 `package.json` is the single source of truth for the version. The server and the
 ChatGPT plugin manifests read from it (`npm run sync:versions`).
 
+## 0.4.0
+
+- **Rules split** — `list_rules` was ~68 KB, which buried the foundation and
+  guardrails. It now returns a short always-read document (non-negotiables,
+  guardrails, the three routes, platform, foundation, render guide, component
+  index) of ~16 KB, and a new **`get_component_rule`** tool serves one
+  component's detail on demand.
+- **Explicit anti-patterns** — the rules open by naming the two failure modes:
+  drawing stand-ins for GSA components in Figma, and drawing components from
+  scratch in generated images instead of using `get_component_render`.
+- **Admin sign-in** — the Library and Settings are gated by a modal sign-in.
+  The password is the admin token, so only admins see those pages.
+- **Audit log** — every change is recorded against the signed-in name (or
+  `admin token` for API calls), readable in Settings → Activity or
+  `GET /api/audit`.
+- **Network restriction** — opt-in allowlist for recognised networks
+  (`ALLOW_OPENAI_IPS`, `ALLOWED_IPS`), with OpenAI's ranges refreshed twice
+  daily. `X-Robots-Tag: noindex` added.
+- **Usage stats** — anonymous tool-call counts at `GET /api/usage`.
+- **Ops** — `npm run smoke`, `npm run sync:versions`, version surfaced in
+  `/api/status` and the UI, onboarding and status docs.
+
 ## 0.3.0
 
 - **Stateless MCP** — each request gets a fresh server, so redeploys no longer

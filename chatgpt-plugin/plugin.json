@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "gsa-build-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Design, build and render CMC Markets interfaces with the GSA design system: the real components, tokens, rules and rendered component images.",
   "author": {
     "name": "CMC Markets",
