@@ -261,7 +261,6 @@
     <a href="/library" data-route="library">Library</a>
     <a href="/reviews" data-route="reviews">Reviews</a>
     <a href="/settings" data-route="settings">Settings</a>
-    <a href="/brainstorm" data-route="brainstorm">Brainstorm</a>
   </nav>
   <span id="auth-box" class="auth-box hidden"></span>
 </header>
@@ -510,20 +509,7 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
     </div>
   </section>
 
-  <section id="brainstorm" class="hidden">
-    <h2>Brainstorm, the CMC way</h2>
-    <p>Describe an idea and get a build plan grounded in your design system and components.</p>
-    <div class="card">
-      <label for="idea">Your idea</label>
-      <textarea id="idea" placeholder="e.g. A customer onboarding flow with a progress tracker, feature highlight cards, and a dark-mode settings screen…"></textarea>
-      <div class="toolbar" style="margin-top:12px">
-        <button id="btn-prompt">Generate agent prompt</button>
-      </div>
-      <pre id="prompt-out" class="hidden"></pre>
-      <p id="prompt-copied" class="hidden" style="color:var(--green);font-size:13px;margin-top:8px">Prompt copied to clipboard.</p>
-    </div>
-  </section>
-</main>
+/main>
 
 <div id="how-modal" class="modal-backdrop hidden">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="how-title">
@@ -989,7 +975,6 @@ const ROUTES = {
   library: { section: "library", path: "/library" },
   reviews: { section: "reviews", path: "/reviews" },
   settings: { section: "settings", path: "/settings" },
-  brainstorm: { section: "brainstorm", path: "/brainstorm" },
 };
 
 function showSection(sectionName) {
@@ -1046,7 +1031,6 @@ function navigate(path, push = true) {
   }
   if (path.startsWith("/library")) return loadForRoute(ROUTES.library, null);
   if (path.startsWith("/reviews")) return loadForRoute(ROUTES.reviews, null);
-  if (path.startsWith("/brainstorm")) return loadForRoute(ROUTES.brainstorm, null);
   return loadForRoute(ROUTES.overview, null);
 }
 
@@ -1095,36 +1079,6 @@ function switchSubtab(name, silent) {
 
 // handle back/forward
 window.addEventListener("popstate", () => navigate(window.location.pathname));
-
-// brainstorm
-document.getElementById("btn-prompt").addEventListener("click", () => {
-  const idea = document.getElementById("idea").value.trim();
-  const prompt = `You are designing a feature for our product. Stay on CMCMarkets brand and design language.
-
-IDEA: ${idea || "(your idea here)"}
-
-GUARDRAILS, these are absolute:
-1. NEVER create, add, or invent a component. Use ONLY the components in the design system.
-2. NO hallucinations: verify components and tokens exist before using them.
-3. When in doubt, ask the user.
-
-WORKFLOW:
-1. Follow the gsa-build-kit MCP rules (list_rules).
-2. Read the Figma design library and tokens (get_figma_library, list_figma_components, get_figma_component, get_figma_tokens).
-3. Inspect our components repo (list_components, get_component, get_repo_structure) and read any published specs (list_specs, get_spec).
-4. Plan the UI using ONLY components and tokens that exist in our system.
-5. If a needed component does not exist, STOP and ask the user, do not invent one.
-6. Output: (a) a component map, (b) the screens/flows, (c) anything the user needs to provide, (d) rough implementation steps for an agent.
-
-Connect the gsa-build-kit MCP before running this.`;
-  const out = document.getElementById("prompt-out");
-  out.textContent = prompt;
-  out.classList.remove("hidden");
-  navigator.clipboard.writeText(prompt);
-  const copied = document.getElementById("prompt-copied");
-  copied.classList.remove("hidden");
-  setTimeout(() => copied.classList.add("hidden"), 2000);
-});
 
 // figma settings
 // Smoothly swap an element's text with a gentle fade/rise.
