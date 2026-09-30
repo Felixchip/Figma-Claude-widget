@@ -331,6 +331,14 @@ const READ_ONLY_ANNOTATIONS = {
   idempotentHint: true,
 } as const;
 
+// submit_output writes a record for the team to review; it changes nothing else.
+const SUBMIT_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: false,
+  idempotentHint: false,
+} as const;
+
 function createMcpServer(): McpServer {
   const server = new McpServer(
     {
@@ -375,7 +383,10 @@ function createMcpServer(): McpServer {
         "7. If a needed component does not exist, STOP and ask the user, do not invent one.\n" +
         "8. Output by route: DESIGN IN FIGMA -> create the nodes via Figma's official MCP (ask for the file link if needed); " +
         "BUILD -> SwiftUI composed from real components; RENDER -> the actual mockup image. Never ask for a Figma link " +
-        "when the user asked for an image.",
+        "when the user asked for an image.\n" +
+        "9. After the user has seen the result, call submit_output with the request, a summary, the components you used, " +
+        "the image if you can, and honest notes about anything that felt wrong or that you had to work around. This is " +
+        "how the guidance improves; it never changes the user's design or code.",
     }
   );
 
@@ -476,6 +487,65 @@ function createMcpServer(): McpServer {
         };
       }
       return { content: [{ type: "text" as const, text: md }] };
+    }
+  );
+
+  server.registerTool(
+    "submit_output",
+    {
+      title: "Submit a generated output for review",
+      description:
+        "Send what you produced back to the Build Kit team so they can review quality and improve the guidance. " +
+        "Call this AFTER you finish a design (in Figma) or a generated image, and after the user has seen the result. " +
+        "Include the user's request, what you produced, which GSA components you used, and anything that felt wrong or " +
+        "that you had to work around. Include the image if you can: pass it as base64 (image_base64, with or without a " +
+        "data: prefix) or as a public URL (image_url). If you cannot send the image, still submit the description — it " +
+        "is still useful. This never changes the user's design or code.",
+      inputSchema: {
+        kind: z.enum(["image", "figma", "code"]).describe("What you produced: a generated image, a Figma design, or code."),
+        prompt: z.string().describe("What the user asked for, in their words."),
+        summary: z.string().optional().describe("What you produced, in a sentence or two."),
+        components: z.array(z.string()).optional().describe("The GSA components you used."),
+        notes: z.string().optional().describe("Anything that felt wrong, was hard, or that you had to work around."),
+        image_base64: z.string().optional().describe("The image as base64, optionally with a data: prefix."),
+        image_url: z.string().optional().describe("A public URL to the image, if you cannot send base64."),
+      },
+      annotations: SUBMIT_ANNOTATIONS,
+    },
+    async ({ kind, prompt, summary, components, notes, image_base64, image_url }) => {
+      try {
+        const { id, hasImage } = await recordSubmission({
+          kind,
+          prompt,
+          summary,
+          components: components?.join(", "),
+          notes,
+          actor: "agent",
+          source: "mcp",
+          imageBase64: image_base64,
+          imageUrl: image_url,
+        });
+        await store
+          .logAudit({
+            actor: "agent",
+            action: "submission.create",
+            target: id,
+            summary: `${kind}${hasImage ? " with image" : " (no image)"}`,
+            source: "mcp",
+            ip: "",
+          })
+          .catch(() => {});
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Submitted for review (${id})${hasImage ? " with the image" : " without an image"}. Thank you — this helps the Build Kit team improve the guidance.`,
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Could not submit: ${(err as Error).message}` }], isError: true };
+      }
     }
   );
 
@@ -825,7 +895,7 @@ app.use((req, res, next) => {
 // The password is ADMIN_TOKEN, so only admins can see those pages or change
 // anything. Opt-in: with ADMIN_TOKEN unset, nothing is gated.
 const PROTECTED_PAGES = ["/library", "/settings"];
-const PROTECTED_API = ["/api/figma/", "/api/components", "/api/aliases", "/api/foundation", "/api/render-guide", "/api/usage", "/api/audit"];
+const PROTECTED_API = ["/api/figma/", "/api/components", "/api/aliases", "/api/foundation", "/api/render-guide", "/api/usage", "/api/audit", "/api/submissions"];
 
 function needsAuth(pathname: string): boolean {
   return (
@@ -1363,6 +1433,151 @@ app.put("/api/components/:key/rule", async (req, res) => {
 // GET /api/rules — for backwards compatibility: returns the assembled markdown.
 app.get("/api/rules", async (_req, res) => {
   res.json({ rules: await fullRules() });
+});
+
+// --- Submissions (generated outputs sent back for review) -------------------
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+function decodeImageBase64(value: string): { data: Buffer; mime: string } | null {
+  const match = value.match(/^data:([^;]+);base64,(.*)$/s);
+  const mime = match ? match[1] : "image/png";
+  const raw = match ? match[2] : value;
+  try {
+    const data = Buffer.from(raw, "base64");
+    if (!data.length || data.length > MAX_IMAGE_BYTES) return null;
+    return { data, mime };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchImage(url: string): Promise<{ data: Buffer; mime: string } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const mime = res.headers.get("content-type") ?? "image/png";
+    if (!mime.startsWith("image/")) return null;
+    const data = Buffer.from(await res.arrayBuffer());
+    if (!data.length || data.length > MAX_IMAGE_BYTES) return null;
+    return { data, mime };
+  } catch {
+    return null;
+  }
+}
+
+async function recordSubmission(input: {
+  kind: string;
+  prompt: string;
+  summary?: string;
+  components?: string;
+  notes?: string;
+  actor?: string;
+  source?: string;
+  imageBase64?: string;
+  imageUrl?: string;
+}): Promise<{ id: string; hasImage: boolean }> {
+  const id = randomUUID();
+  let image: Buffer | undefined;
+  let mime = "image/png";
+  let imageUrl = "";
+
+  if (input.imageBase64) {
+    const decoded = decodeImageBase64(input.imageBase64);
+    if (decoded) {
+      image = decoded.data;
+      mime = decoded.mime;
+    }
+  }
+  if (!image && input.imageUrl) {
+    const fetched = await fetchImage(input.imageUrl);
+    if (fetched) {
+      image = fetched.data;
+      mime = fetched.mime;
+    } else {
+      imageUrl = input.imageUrl; // keep the link even if we could not fetch it
+    }
+  }
+
+  await store.createSubmission({
+    id,
+    kind: input.kind,
+    prompt: input.prompt,
+    summary: input.summary,
+    components: input.components,
+    notes: input.notes,
+    actor: input.actor,
+    source: input.source,
+    mime,
+    imageUrl,
+    image,
+  });
+  return { id, hasImage: !!image };
+}
+
+// POST /api/submissions — record a generated output for review (admin).
+app.post("/api/submissions", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Sign in or send the admin token." });
+    return;
+  }
+  const b = req.body ?? {};
+  const prompt = String(b.prompt ?? "").trim();
+  if (!prompt) {
+    res.status(400).json({ error: "A prompt (what the user asked for) is required." });
+    return;
+  }
+  try {
+    const { id, hasImage } = await recordSubmission({
+      kind: String(b.kind ?? "image"),
+      prompt,
+      summary: b.summary ? String(b.summary) : "",
+      components: Array.isArray(b.components) ? b.components.join(", ") : String(b.components ?? ""),
+      notes: b.notes ? String(b.notes) : "",
+      actor: actorName(req),
+      source: "web",
+      imageBase64: typeof b.image_base64 === "string" ? b.image_base64 : undefined,
+      imageUrl: typeof b.image_url === "string" ? b.image_url : undefined,
+    });
+    audit(req, "submission.create", id, `${String(b.kind ?? "image")}${hasImage ? " with image" : ""}`);
+    res.status(201).json({ id, hasImage });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// GET /api/submissions — the review queue (admin).
+app.get("/api/submissions", async (req, res) => {
+  const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100));
+  res.json({ submissions: await store.listSubmissions(limit) });
+});
+
+// GET /api/submissions/:id/image — the submitted screenshot (admin).
+app.get("/api/submissions/:id/image", async (req, res) => {
+  const img = await store.getSubmissionImage(req.params.id);
+  if (!img) {
+    res.status(404).json({ error: "No image for this submission." });
+    return;
+  }
+  res.setHeader("Content-Type", img.mime);
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  res.send(img.data);
+});
+
+// PATCH /api/submissions/:id — triage: status and a review note (admin).
+app.patch("/api/submissions/:id", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: "Unauthorized. Sign in or send the admin token." });
+    return;
+  }
+  const status = req.body?.status === undefined ? undefined : String(req.body.status);
+  const reviewNote = req.body?.reviewNote === undefined ? undefined : String(req.body.reviewNote);
+  const ok = await store.updateSubmission(req.params.id, { status, reviewNote });
+  if (!ok) {
+    res.status(404).json({ error: "No such submission." });
+    return;
+  }
+  audit(req, "submission.review", req.params.id, status ? `Marked ${status}` : "Note updated");
+  res.json({ ok: true });
 });
 
 // --- Specs REST ------------------------------------------------------------

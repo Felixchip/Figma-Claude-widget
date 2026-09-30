@@ -118,5 +118,29 @@ await check("GET /api/figma/image/:nodeId", async () => {
   return `${first.group} · ${type}`;
 });
 
+// Admin areas should be closed to anonymous callers.
+const status = await (await fetch(`${BASE}/api/status`)).json().catch(() => ({}));
+if (status?.auth?.enabled) {
+  await check("admin APIs require auth", async () => {
+    const guarded = ["/api/submissions", "/api/audit", "/api/components"];
+    for (const path of guarded) {
+      const res = await fetch(`${BASE}${path}`);
+      if (res.status !== 401) throw new Error(`${path} returned ${res.status}, expected 401`);
+    }
+    return `${guarded.length} endpoints closed`;
+  });
+
+  if (process.env.ADMIN_TOKEN) {
+    await check("GET /api/submissions (admin)", async () => {
+      const res = await fetch(`${BASE}/api/submissions`, {
+        headers: { Authorization: `Bearer ${process.env.ADMIN_TOKEN}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      return `${d.submissions?.length ?? 0} submission(s) in the review queue`;
+    });
+  }
+}
+
 console.log(failures ? `\n${failures} check(s) failed.` : "\nAll checks passed.");
 process.exit(failures ? 1 : 0);

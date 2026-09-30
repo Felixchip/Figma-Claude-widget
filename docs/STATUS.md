@@ -155,6 +155,16 @@ making a change. Per-person sign-in is item 6 above.
 
 ---
 
+## Also done: a feedback loop
+
+Agents now send back what they produced — the request, what they made, the
+components they used, and honest notes about anything they had to work around.
+The team reviews these in a new **Reviews** area of the app and marks each one
+reviewed or actioned.
+
+This is the mechanism for improving quality over time: instead of guessing why
+output drifts, we can see the actual cases where the guidance didn't land.
+
 ## Suggested next steps
 
 1. **Get the exposure decision** (item 1) — it determines everything else.

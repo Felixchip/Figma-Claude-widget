@@ -54,6 +54,22 @@ export interface SpecStore {
   usageStats(days?: number): Promise<UsageStats>;
   logAudit(event: Omit<AuditEvent, "at">): Promise<void>;
   auditEvents(limit?: number): Promise<AuditEvent[]>;
+  createSubmission(input: {
+    id: string;
+    kind: string;
+    prompt: string;
+    summary?: string;
+    components?: string;
+    notes?: string;
+    actor?: string;
+    source?: string;
+    mime?: string;
+    imageUrl?: string;
+    image?: Buffer;
+  }): Promise<void>;
+  listSubmissions(limit?: number): Promise<Submission[]>;
+  getSubmissionImage(id: string): Promise<{ mime: string; data: Buffer } | undefined>;
+  updateSubmission(id: string, patch: { status?: string; reviewNote?: string }): Promise<boolean>;
   getImage(nodeId: string, theme?: string): Promise<ComponentImage | undefined>;
   saveImage(img: ComponentImage): Promise<void>;
   listImages(): Promise<ComponentImageMeta[]>;
@@ -93,6 +109,25 @@ export type AuditEvent = {
   summary: string;
   source: string;
   ip: string;
+};
+
+// What an agent produced, sent back for review. The image is optional: the
+// agent may not be able to pass bytes, in which case a description still helps.
+export type Submission = {
+  id: string;
+  at: string;
+  kind: string; // "image" | "figma" | "code"
+  prompt: string;
+  summary: string;
+  components: string;
+  notes: string;
+  actor: string;
+  source: string; // "mcp" | "web"
+  status: string; // "new" | "reviewed" | "actioned"
+  reviewNote: string;
+  mime: string;
+  imageUrl: string;
+  bytes: number;
 };
 
 function toSpec(row: any): Spec {
@@ -188,6 +223,25 @@ class PostgresStore implements SpecStore {
       )
     `);
     await this.pool.query(`CREATE INDEX IF NOT EXISTS audit_events_at_idx ON audit_events (at DESC)`);
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS submissions (
+        id TEXT PRIMARY KEY,
+        at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        kind TEXT NOT NULL DEFAULT 'image',
+        prompt TEXT NOT NULL DEFAULT '',
+        summary TEXT NOT NULL DEFAULT '',
+        components TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        actor TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'new',
+        review_note TEXT NOT NULL DEFAULT '',
+        mime TEXT NOT NULL DEFAULT 'image/png',
+        image_url TEXT NOT NULL DEFAULT '',
+        image BYTEA
+      )
+    `);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS submissions_at_idx ON submissions (at DESC)`);
     this.ready = true;
   }
 
@@ -308,6 +362,81 @@ class PostgresStore implements SpecStore {
       source: r.source ?? "",
       ip: r.ip ?? "",
     }));
+  }
+
+  async createSubmission(input: {
+    id: string;
+    kind: string;
+    prompt: string;
+    summary?: string;
+    components?: string;
+    notes?: string;
+    actor?: string;
+    source?: string;
+    mime?: string;
+    imageUrl?: string;
+    image?: Buffer;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO submissions (id, kind, prompt, summary, components, notes, actor, source, mime, image_url, image)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        input.id,
+        input.kind.slice(0, 20),
+        input.prompt.slice(0, 2000),
+        (input.summary ?? "").slice(0, 4000),
+        (input.components ?? "").slice(0, 2000),
+        (input.notes ?? "").slice(0, 4000),
+        (input.actor ?? "").slice(0, 80),
+        (input.source ?? "").slice(0, 20),
+        (input.mime ?? "image/png").slice(0, 60),
+        (input.imageUrl ?? "").slice(0, 1000),
+        input.image ?? null,
+      ]
+    );
+  }
+
+  async listSubmissions(limit = 100): Promise<Submission[]> {
+    const res = await this.pool.query(
+      `SELECT id, at, kind, prompt, summary, components, notes, actor, source, status, review_note, mime, image_url,
+              COALESCE(octet_length(image), 0) AS bytes
+         FROM submissions ORDER BY at DESC LIMIT $1`,
+      [Math.min(500, Math.max(1, limit))]
+    );
+    return res.rows.map((r) => ({
+      id: r.id,
+      at: r.at instanceof Date ? r.at.toISOString() : String(r.at),
+      kind: r.kind ?? "",
+      prompt: r.prompt ?? "",
+      summary: r.summary ?? "",
+      components: r.components ?? "",
+      notes: r.notes ?? "",
+      actor: r.actor ?? "",
+      source: r.source ?? "",
+      status: r.status ?? "new",
+      reviewNote: r.review_note ?? "",
+      mime: r.mime ?? "image/png",
+      imageUrl: r.image_url ?? "",
+      bytes: Number(r.bytes ?? 0),
+    }));
+  }
+
+  async getSubmissionImage(id: string): Promise<{ mime: string; data: Buffer } | undefined> {
+    const res = await this.pool.query("SELECT mime, image FROM submissions WHERE id = $1", [id]);
+    const row = res.rows[0];
+    if (!row?.image) return undefined;
+    return { mime: row.mime ?? "image/png", data: row.image };
+  }
+
+  async updateSubmission(id: string, patch: { status?: string; reviewNote?: string }): Promise<boolean> {
+    const res = await this.pool.query(
+      `UPDATE submissions
+          SET status = COALESCE($2, status),
+              review_note = COALESCE($3, review_note)
+        WHERE id = $1`,
+      [id, patch.status?.slice(0, 20) ?? null, patch.reviewNote?.slice(0, 4000) ?? null]
+    );
+    return (res.rowCount ?? 0) > 0;
   }
 
   async saveUsageRules(rules: string): Promise<void> {
@@ -489,6 +618,8 @@ class MemoryStore implements SpecStore {
   private targets?: { targets: RenderTarget[]; fileVersion: string };
   private usage: { tool: string; detail: string; source: string; at: string }[] = [];
   private audit: AuditEvent[] = [];
+  private submissions: Submission[] = [];
+  private submissionImages = new Map<string, { mime: string; data: Buffer }>();
   readonly kind = "memory" as const;
   ready = true;
 
@@ -541,6 +672,55 @@ class MemoryStore implements SpecStore {
 
   async getUsageRules(): Promise<string | undefined> {
     return this.settings.get("usage_rules");
+  }
+
+  async createSubmission(input: {
+    id: string;
+    kind: string;
+    prompt: string;
+    summary?: string;
+    components?: string;
+    notes?: string;
+    actor?: string;
+    source?: string;
+    mime?: string;
+    imageUrl?: string;
+    image?: Buffer;
+  }): Promise<void> {
+    this.submissions.unshift({
+      id: input.id,
+      at: new Date().toISOString(),
+      kind: input.kind,
+      prompt: input.prompt,
+      summary: input.summary ?? "",
+      components: input.components ?? "",
+      notes: input.notes ?? "",
+      actor: input.actor ?? "",
+      source: input.source ?? "",
+      status: "new",
+      reviewNote: "",
+      mime: input.mime ?? "image/png",
+      imageUrl: input.imageUrl ?? "",
+      bytes: input.image?.length ?? 0,
+    });
+    if (input.image) this.submissionImages.set(input.id, { mime: input.mime ?? "image/png", data: input.image });
+    if (this.submissions.length > 500) this.submissions.length = 500;
+  }
+
+  async listSubmissions(limit = 100): Promise<Submission[]> {
+    return this.submissions.slice(0, Math.min(500, Math.max(1, limit)));
+  }
+
+  async getSubmissionImage(id: string): Promise<{ mime: string; data: Buffer } | undefined> {
+    return this.submissionImages.get(id);
+  }
+
+  async updateSubmission(id: string, patch: { status?: string; reviewNote?: string }): Promise<boolean> {
+    const row = this.submissions.find((s) => s.id === id);
+    if (!row) return false;
+    if (patch.status) row.status = patch.status;
+    if (patch.reviewNote !== undefined) row.reviewNote = patch.reviewNote;
+    return true;
   }
 
   async saveUsageRules(rules: string): Promise<void> {

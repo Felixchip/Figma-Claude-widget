@@ -3,6 +3,17 @@
 `package.json` is the single source of truth for the version. The server and the
 ChatGPT plugin manifests read from it (`npm run sync:versions`).
 
+## 0.5.0
+
+- **Review loop** — a new `submit_output` MCP tool lets an agent send back what
+  it produced: the request, a summary, the GSA components it used, honest notes
+  about anything it had to work around, and the image (base64 or URL).
+  Submissions are stored and reviewed at **/reviews** in the web app, where each
+  one can be marked new / reviewed / actioned with a review note.
+- **REST**: `POST /api/submissions`, `GET /api/submissions`,
+  `GET /api/submissions/:id/image`, `PATCH /api/submissions/:id` (admin).
+- Submissions and their review changes are recorded in the audit log.
+
 ## 0.4.0
 
 - **Rules split** — `list_rules` was ~68 KB, which buried the foundation and

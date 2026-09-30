@@ -308,6 +308,17 @@ start, and spec publishing (attributed to `figma widget`).
 
 Read it at `GET /api/audit` (admin) or in **Settings → Activity**.
 
+## Review loop
+
+Agents send back what they produced with the **`submit_output`** MCP tool: the
+request, a summary, the GSA components used, honest notes about anything they had
+to work around, and the image (base64 or a URL). It is how we see where the
+guidance isn't landing.
+
+Browse and triage them at **/reviews** (admin): mark each one new, reviewed or
+actioned, with a note. Stored in the `submissions` table; images up to 8 MB, and
+`image_url` is fetched server-side so it doesn't expire.
+
 ## Restricting access
 
 The service is public by default. To limit it to recognised networks, set:
@@ -346,6 +357,10 @@ To turn it off again, remove the variables and redeploy.
 | `DELETE /api/figma/images` | Clear the render cache (admin; `?theme=` clears one theme) |
 | `GET /api/usage` | Anonymous tool-call counts (`?days=7`) |
 | `GET /api/audit` | Who changed what (`?limit=200`), admin only |
+| `POST /api/submissions` | Record a generated output for review (admin) |
+| `GET /api/submissions` | The review queue (`?limit=100`), admin only |
+| `GET /api/submissions/:id/image` | A submitted screenshot (admin) |
+| `PATCH /api/submissions/:id` | Triage a submission: status + review note (admin) |
 | `GET /api/status` | Server + repo status, version and library stats |
 | `GET /health` | Health check |
 

@@ -108,6 +108,24 @@
   .login-body label:first-of-type { margin-top: 0; }
   .login-submit { width: 100%; margin-top: 22px; padding: 13px 18px; }
   .login-error { margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--error3); background: #FDECEC; }
+  .review-list { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+  .review { display: grid; grid-template-columns: 260px 1fr; gap: 24px; background: var(--panel); border: 1px solid var(--outline5); border-radius: var(--radius); padding: 20px 24px; }
+  @media (max-width: 800px) { .review { grid-template-columns: 1fr; } }
+  .review-shot { background: var(--fill1); border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 150px; }
+  .review-shot img { max-width: 100%; max-height: 260px; object-fit: contain; display: block; cursor: zoom-in; }
+  .review-shot.empty { color: var(--content4); font-size: 12px; }
+  .review-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--content4); margin-bottom: 8px; }
+  .review-status { font-size: 10px; font-weight: 600; border-radius: 999px; padding: 2px 9px; text-transform: uppercase; letter-spacing: .04em; }
+  .review-status.new { color: var(--primary2); background: var(--primary1); }
+  .review-status.reviewed { color: var(--green); background: #E6F4EA; }
+  .review-status.actioned { color: var(--muted); background: var(--fill3); }
+  .review h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .review p { font-size: 13px; margin-bottom: 6px; }
+  .review-label { color: var(--content4); }
+  .review-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--outline5); }
+  .review-actions select { width: auto; }
+  .review-actions input { flex: 1; min-width: 200px; }
+  .review-actions button { padding: 9px 16px; }
   .lib-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .lib-toolbar input[type="search"] { flex: 1; min-width: 220px; }
   .lib-count { font-size: 13px; color: var(--content4); }
@@ -241,6 +259,7 @@
   <nav>
     <a href="/" class="active" data-route="overview">Overview</a>
     <a href="/library" data-route="library">Library</a>
+    <a href="/reviews" data-route="reviews">Reviews</a>
     <a href="/settings" data-route="settings">Settings</a>
     <a href="/brainstorm" data-route="brainstorm">Brainstorm</a>
   </nav>
@@ -312,6 +331,26 @@ Build the UI using ONLY the components in our design system. Stay on CMCMarkets 
     </div>
 
     <div id="lib-grid" class="lib-grid"></div>
+  </section>
+
+  <section id="reviews" class="hidden">
+    <h2>Reviews</h2>
+    <p>What agents produced, sent back for review. Use it to spot where the guidance isn't landing.</p>
+
+    <div class="card">
+      <div class="lib-toolbar">
+        <select id="review-filter" style="max-width:180px">
+          <option value="all">All</option>
+          <option value="new" selected>New</option>
+          <option value="reviewed">Reviewed</option>
+          <option value="actioned">Actioned</option>
+        </select>
+        <span id="review-count" class="lib-count"></span>
+        <button id="btn-review-reload" class="secondary">Reload</button>
+      </div>
+    </div>
+
+    <div id="review-list" class="review-list"></div>
   </section>
 
   <section id="settings" class="hidden">
@@ -836,6 +875,103 @@ window.fetch = async (input, init) => {
   return res;
 };
 
+// --- Reviews ---------------------------------------------------------------
+let reviews = [];
+
+async function loadReviews() {
+  const el = document.getElementById("review-list");
+  const count = document.getElementById("review-count");
+  try {
+    const r = await fetch(mcpUrl + "/api/submissions?limit=200");
+    if (!r.ok) return;
+    reviews = (await r.json()).submissions || [];
+    renderReviews();
+  } catch {
+    count.textContent = "";
+    el.innerHTML = '<p style="color:var(--red)">Could not load reviews.</p>';
+  }
+}
+
+function renderReviews() {
+  const el = document.getElementById("review-list");
+  const count = document.getElementById("review-count");
+  const filter = document.getElementById("review-filter").value;
+  const rows = reviews.filter((s) => filter === "all" || s.status === filter);
+  count.textContent = `${rows.length} of ${reviews.length} submission(s)`;
+
+  if (!rows.length) {
+    el.innerHTML = `<p style="color:var(--muted)">Nothing ${filter === "all" ? "submitted" : `marked "${filter}"`} yet. Agents submit automatically after producing a design or an image.</p>`;
+    return;
+  }
+
+  el.innerHTML = rows
+    .map((s) => {
+      const shot = s.bytes
+        ? `<img loading="lazy" alt="Submitted output" src="${mcpUrl}/api/submissions/${encodeURIComponent(s.id)}/image">`
+        : `<span>No image submitted</span>`;
+      return `
+      <article class="review">
+        <div class="review-shot${s.bytes ? "" : " empty"}">${shot}</div>
+        <div class="review-body">
+          <div class="review-meta">
+            <span class="review-status ${esc(s.status)}">${esc(s.status)}</span>
+            <span>${esc(s.kind)}</span>
+            <span>·</span>
+            <span>${esc(s.actor || "unknown")}</span>
+            <span>·</span>
+            <span>${esc(fmtWhen(s.at))}</span>
+          </div>
+          <h4>${esc(s.prompt)}</h4>
+          ${s.summary ? `<p>${esc(s.summary)}</p>` : ""}
+          ${s.components ? `<p><span class="review-label">Components:</span> ${esc(s.components)}</p>` : ""}
+          ${s.notes ? `<p><span class="review-label">Agent notes:</span> ${esc(s.notes)}</p>` : ""}
+          <div class="review-actions">
+            <select data-status>
+              <option value="new"${s.status === "new" ? " selected" : ""}>New</option>
+              <option value="reviewed"${s.status === "reviewed" ? " selected" : ""}>Reviewed</option>
+              <option value="actioned"${s.status === "actioned" ? " selected" : ""}>Actioned</option>
+            </select>
+            <input data-note placeholder="Review note (what to improve)" value="${esc(s.reviewNote)}">
+            <button class="secondary" data-save data-id="${esc(s.id)}">Save</button>
+          </div>
+        </div>
+      </article>`;
+    })
+    .join("");
+}
+
+document.getElementById("review-list").addEventListener("click", async (e) => {
+  const img = e.target.closest(".review-shot img");
+  if (img) {
+    window.open(img.src, "_blank");
+    return;
+  }
+  const btn = e.target.closest("[data-save]");
+  if (!btn) return;
+  const card = btn.closest(".review");
+  const status = card.querySelector("[data-status]").value;
+  const reviewNote = card.querySelector("[data-note]").value;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${mcpUrl}/api/submissions/${encodeURIComponent(btn.dataset.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ status, reviewNote })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const item = reviews.find((s) => s.id === btn.dataset.id);
+    if (item) { item.status = status; item.reviewNote = reviewNote; }
+    renderReviews();
+  } catch (err) {
+    alert("Could not save: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("review-filter").addEventListener("change", renderReviews);
+document.getElementById("btn-review-reload").addEventListener("click", loadReviews);
+
 // How-to-use modal
 const howModal = document.getElementById("how-modal");
 function toggleHow(open) {
@@ -850,6 +986,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleHow(
 const ROUTES = {
   overview: { section: "overview", path: "/" },
   library: { section: "library", path: "/library" },
+  reviews: { section: "reviews", path: "/reviews" },
   settings: { section: "settings", path: "/settings" },
   brainstorm: { section: "brainstorm", path: "/brainstorm" },
 };
@@ -867,7 +1004,7 @@ function showSection(sectionName) {
 
 async function loadForRoute(route, subtab) {
   document.querySelectorAll("nav a").forEach(x => x.classList.toggle("active", x.dataset.route === route.section));
-  if (route.section === "library" || route.section === "settings") {
+  if (route.section === "library" || route.section === "settings" || route.section === "reviews") {
     if (!(await authReady())) {
       // Don't reveal the locked page: hide it, ask for sign-in, then continue
       // to it once authenticated.
@@ -892,6 +1029,10 @@ async function loadForRoute(route, subtab) {
     restoreLibraryToken();
     loadLibrary();
   }
+  if (route.section === "reviews") {
+    restoreLibraryToken();
+    loadReviews();
+  }
 }
 
 function navigate(path, push = true) {
@@ -903,6 +1044,7 @@ function navigate(path, push = true) {
     return loadForRoute(ROUTES.settings, sub || "settings-home");
   }
   if (path.startsWith("/library")) return loadForRoute(ROUTES.library, null);
+  if (path.startsWith("/reviews")) return loadForRoute(ROUTES.reviews, null);
   if (path.startsWith("/brainstorm")) return loadForRoute(ROUTES.brainstorm, null);
   return loadForRoute(ROUTES.overview, null);
 }
