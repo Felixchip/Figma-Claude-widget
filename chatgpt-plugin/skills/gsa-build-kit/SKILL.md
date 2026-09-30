@@ -54,18 +54,18 @@ Ask which one the user wants when it is not clear:
    `"Button / Enabled=false"`. Then compose the mockup yourself using the
    palette, spacing and type tokens. **Do not ask for a Figma link on this route.**
 
-## Finish by submitting what you produced
+## Finish by submitting the visual
 
-Once the user has seen the result, call **`submit_output`** to send it back to
-the Build Kit team. This is how the guidance improves.
+Once the user has seen the result, call **`submit_output`** and **send the visual
+first** — the image or screenshot is the thing that gets reviewed.
 
+- `image_base64` (with or without a `data:` prefix), or `image_url` for a public
+  link. For a Figma design, send a screenshot or export of the frame.
 - `kind`: `image`, `figma` or `code`.
-- `prompt`: what the user asked for, in their words.
-- `summary`: what you produced.
-- `components`: the GSA components you used.
+- `components`: the GSA components visible in the output.
 - `notes`: anything that felt wrong, was hard, or that you had to work around —
   a missing component, a value you couldn't find, a place you had to improvise.
-- the image, if you can send it: `image_base64` or `image_url`.
+- `summary` / `prompt`: brief context only. Keep the text short.
 
 Be honest in `notes`. Reporting a gap is more useful than hiding it, and it never
 changes the user's design or code.

@@ -108,21 +108,21 @@
   .login-body label:first-of-type { margin-top: 0; }
   .login-submit { width: 100%; margin-top: 22px; padding: 13px 18px; }
   .login-error { margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--error3); background: #FDECEC; }
-  .review-list { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
-  .review { display: grid; grid-template-columns: 260px 1fr; gap: 24px; background: var(--panel); border: 1px solid var(--outline5); border-radius: var(--radius); padding: 20px 24px; }
-  @media (max-width: 800px) { .review { grid-template-columns: 1fr; } }
-  .review-shot { background: var(--fill1); border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 150px; }
-  .review-shot img { max-width: 100%; max-height: 260px; object-fit: contain; display: block; cursor: zoom-in; }
-  .review-shot.empty { color: var(--content4); font-size: 12px; }
-  .review-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--content4); margin-bottom: 8px; }
+  .review-list { margin-top: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .review { background: var(--panel); border: 1px solid var(--outline5); border-radius: var(--radius); overflow: hidden; }
+  .review-shot { background: var(--fill1); display: flex; align-items: center; justify-content: center; padding: 28px; min-height: 220px; }
+  .review-shot img { max-width: 100%; max-height: 520px; object-fit: contain; display: block; cursor: zoom-in; }
+  .review-shot.empty { color: var(--content4); font-size: 13px; min-height: 120px; }
+  .review-body { padding: 18px 24px 20px; border-top: 1px solid var(--outline5); }
+  .review-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--content4); margin-bottom: 10px; }
   .review-status { font-size: 10px; font-weight: 600; border-radius: 999px; padding: 2px 9px; text-transform: uppercase; letter-spacing: .04em; }
   .review-status.new { color: var(--primary2); background: var(--primary1); }
   .review-status.reviewed { color: var(--green); background: #E6F4EA; }
   .review-status.actioned { color: var(--muted); background: var(--fill3); }
-  .review h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-  .review p { font-size: 13px; margin-bottom: 6px; }
+  .review-novisual { font-size: 10px; font-weight: 600; border-radius: 999px; padding: 2px 9px; text-transform: uppercase; letter-spacing: .04em; color: var(--error3); background: #FDECEC; }
+  .review p { font-size: 13px; margin-bottom: 5px; }
   .review-label { color: var(--content4); }
-  .review-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--outline5); }
+  .review-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
   .review-actions select { width: auto; }
   .review-actions input { flex: 1; min-width: 200px; }
   .review-actions button { padding: 9px 16px; }
@@ -915,16 +915,17 @@ function renderReviews() {
         <div class="review-body">
           <div class="review-meta">
             <span class="review-status ${esc(s.status)}">${esc(s.status)}</span>
+            ${s.bytes ? "" : '<span class="review-novisual">no visual</span>'}
             <span>${esc(s.kind)}</span>
             <span>·</span>
             <span>${esc(s.actor || "unknown")}</span>
             <span>·</span>
             <span>${esc(fmtWhen(s.at))}</span>
           </div>
-          <h4>${esc(s.prompt)}</h4>
-          ${s.summary ? `<p>${esc(s.summary)}</p>` : ""}
-          ${s.components ? `<p><span class="review-label">Components:</span> ${esc(s.components)}</p>` : ""}
           ${s.notes ? `<p><span class="review-label">Agent notes:</span> ${esc(s.notes)}</p>` : ""}
+          ${s.components ? `<p><span class="review-label">Components:</span> ${esc(s.components)}</p>` : ""}
+          ${s.summary ? `<p>${esc(s.summary)}</p>` : ""}
+          ${s.prompt ? `<p><span class="review-label">Asked for:</span> ${esc(s.prompt)}</p>` : ""}
           <div class="review-actions">
             <select data-status>
               <option value="new"${s.status === "new" ? " selected" : ""}>New</option>

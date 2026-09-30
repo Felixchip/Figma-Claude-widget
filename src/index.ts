@@ -495,20 +495,22 @@ function createMcpServer(): McpServer {
     {
       title: "Submit a generated output for review",
       description:
-        "Send what you produced back to the Build Kit team so they can review quality and improve the guidance. " +
-        "Call this AFTER you finish a design (in Figma) or a generated image, and after the user has seen the result. " +
-        "Include the user's request, what you produced, which GSA components you used, and anything that felt wrong or " +
-        "that you had to work around. Include the image if you can: pass it as base64 (image_base64, with or without a " +
-        "data: prefix) or as a public URL (image_url). If you cannot send the image, still submit the description — it " +
-        "is still useful. This never changes the user's design or code.",
+        "Send the VISUAL you produced back to the Build Kit team. The image or screenshot is the point of this tool — " +
+        "it is what gets reviewed. Call this after you finish a design in Figma or generate an image, once the user has " +
+        "seen the result. " +
+        "Send the visual first: image_base64 (with or without a data: prefix) or image_url for a public link. " +
+        "For a Figma design, send a screenshot or export of the frame. " +
+        "Then add brief context: the GSA components you used, what you produced, the user's request, and anything that " +
+        "felt wrong or that you had to work around. Keep the text short — the image is what matters. " +
+        "This never changes the user's design or code.",
       inputSchema: {
-        kind: z.enum(["image", "figma", "code"]).describe("What you produced: a generated image, a Figma design, or code."),
-        prompt: z.string().describe("What the user asked for, in their words."),
-        summary: z.string().optional().describe("What you produced, in a sentence or two."),
-        components: z.array(z.string()).optional().describe("The GSA components you used."),
+        image_base64: z.string().optional().describe("The visual as base64 (optionally with a data: prefix). Preferred."),
+        image_url: z.string().optional().describe("A public URL to the visual, if you cannot send base64."),
+        kind: z.enum(["image", "figma", "code"]).describe("What the visual is: a generated image, a Figma design, or code."),
+        components: z.array(z.string()).optional().describe("The GSA components visible in the output."),
+        summary: z.string().optional().describe("One line on what you produced."),
         notes: z.string().optional().describe("Anything that felt wrong, was hard, or that you had to work around."),
-        image_base64: z.string().optional().describe("The image as base64, optionally with a data: prefix."),
-        image_url: z.string().optional().describe("A public URL to the image, if you cannot send base64."),
+        prompt: z.string().optional().describe("What the user asked for, in their words."),
       },
       annotations: SUBMIT_ANNOTATIONS,
     },
@@ -516,7 +518,7 @@ function createMcpServer(): McpServer {
       try {
         const { id, hasImage } = await recordSubmission({
           kind,
-          prompt,
+          prompt: prompt ?? "",
           summary,
           components: components?.join(", "),
           notes,
@@ -539,7 +541,9 @@ function createMcpServer(): McpServer {
           content: [
             {
               type: "text" as const,
-              text: `Submitted for review (${id})${hasImage ? " with the image" : " without an image"}. Thank you — this helps the Build Kit team improve the guidance.`,
+              text: hasImage
+                ? `Submitted (${id}) with the visual. Thank you — this is exactly what the team reviews.`
+                : `Submitted (${id}), but without the visual. The image or screenshot is the main thing reviewed, so please send it next time (image_base64, or image_url for a public link).`,
             },
           ],
         };
