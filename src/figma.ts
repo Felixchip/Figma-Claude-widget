@@ -304,25 +304,121 @@ export function extractComponentStats(fileData: any): ComponentStats {
   };
 }
 
-export function extractVariables(fileVars: any): Record<string, { name: string; values: Record<string, unknown>; type: string }[]> {
-  const byType: Record<string, { name: string; values: Record<string, unknown>; type: string }[]> = {};
+// Turn the Figma variables payload into a compact, *resolved* token list.
+//
+// The raw payload is unusable: ~215KB of JSON whose values are alias references
+// keyed by mode id. Aliases have to be followed to a literal, and modes named,
+// or an agent has no real values and invents colours.
+export function extractVariables(fileVars: any): string {
   const collections = fileVars?.meta?.variableCollections ?? {};
   const variables = fileVars?.meta?.variables ?? {};
-  for (const collId of Object.keys(collections)) {
-    const coll = collections[collId];
-    for (const modeId of Object.keys(coll.variableIds ?? {})) {
-      const varId = coll.variableIds[modeId];
-      const v = variables[varId];
-      if (!v) continue;
-      const type = v.resolvedType ?? "unknown";
-      (byType[type] ??= []).push({
-        name: v.name ?? "untitled",
-        type,
-        values: v.valuesByMode ?? {},
-      });
-    }
+
+  // modeId -> mode name, and the default mode per collection.
+  const modeName = new Map<string, string>();
+  const defaultMode = new Map<string, string>(); // collectionId -> modeId
+  for (const id of Object.keys(collections)) {
+    const c = collections[id];
+    for (const m of c.modes ?? []) modeName.set(m.modeId, m.name);
+    if (c.defaultModeId) defaultMode.set(id, c.defaultModeId);
   }
-  return byType;
+
+  // Follow VARIABLE_ALIAS references to a literal value.
+  function resolve(varId: string, modeId: string, depth = 0): any {
+    if (depth > 12) return undefined;
+    const v = variables[varId];
+    if (!v) return undefined;
+    let raw = v.valuesByMode?.[modeId];
+    if (raw === undefined) {
+      const fallback = defaultMode.get(v.variableCollectionId);
+      if (fallback) raw = v.valuesByMode?.[fallback];
+    }
+    if (raw && typeof raw === "object" && raw.type === "VARIABLE_ALIAS") {
+      return resolve(raw.id, modeId, depth + 1);
+    }
+    return raw;
+  }
+
+  function toHex(c: any): string | null {
+    if (!c || typeof c !== "object" || typeof c.r !== "number") return null;
+    const h = (n: number) =>
+      Math.round(Math.max(0, Math.min(1, n)) * 255)
+        .toString(16)
+        .padStart(2, "0");
+    const base = `#${h(c.r)}${h(c.g)}${h(c.b)}`.toUpperCase();
+    return typeof c.a === "number" && c.a < 0.999 ? `${base} (${Math.round(c.a * 100)}%)` : base;
+  }
+
+  function format(v: any): string {
+    if (v === undefined || v === null) return "—";
+    if (typeof v === "number") return String(v);
+    if (typeof v === "string") return v;
+    const hex = toHex(v);
+    return hex ?? JSON.stringify(v);
+  }
+
+  // Every mode we know about, in a stable order (Light first if present).
+  const allModes = [...new Set(modeName.values())].sort((a, b) =>
+    a.toLowerCase() === "light" ? -1 : b.toLowerCase() === "light" ? 1 : a.localeCompare(b)
+  );
+
+  const byType: Record<string, string[]> = { COLOR: [], FLOAT: [], STRING: [], other: [] };
+  const seen = new Set<string>();
+
+  for (const id of Object.keys(variables)) {
+    const v = variables[id];
+    if (!v?.name || seen.has(v.name)) continue;
+    seen.add(v.name);
+    const type = v.resolvedType === "COLOR" ? "COLOR" : v.resolvedType === "FLOAT" ? "FLOAT" : v.resolvedType === "STRING" ? "STRING" : "other";
+
+    // Render only the modes of this token's own collection: a token in the
+    // Light/Dark theme should not gain a spurious column from another
+    // collection's modes.
+    const ownModes: { id: string; name: string }[] = (collections[v.variableCollectionId]?.modes ?? []).map(
+      (m: any) => ({ id: String(m.modeId), name: String(m.name) })
+    );
+    const modes: { id: string; name: string }[] = ownModes.length
+      ? ownModes
+      : allModes.map((name) => ({ id: "", name }));
+
+    const perMode = modes
+      .map((m) => ({ name: m.name, value: format(resolve(id, m.id)) }))
+      .filter((p) => p.value !== "—");
+
+    const distinct = [...new Set(perMode.map((p) => p.value))];
+    const rendered =
+      distinct.length <= 1
+        ? (distinct[0] ?? "—")
+        : perMode.map((p) => `${p.name}=${p.value}`).join(" · ");
+
+    byType[type].push(`${v.name} = ${rendered}`);
+  }
+
+  const collectionList = Object.values<any>(collections)
+    .map((c) => `${c.name} (${(c.modes ?? []).map((m: any) => m.name).join(", ")})`)
+    .join(" · ");
+
+  const lines: string[] = [
+    "# Design tokens (from the connected Figma library)",
+    "",
+    "These are the ONLY token names and values that exist. Do not invent a token name, and do not use a colour that is not listed here. If you need one that isn't present, ask the user.",
+    "",
+    `Collections: ${collectionList || "—"}`,
+    "",
+  ];
+
+  const titles: Record<string, string> = {
+    COLOR: "Colour",
+    FLOAT: "Number (spacing, radius, size)",
+    STRING: "Text / other",
+    other: "Other",
+  };
+  for (const type of ["COLOR", "FLOAT", "STRING", "other"]) {
+    const rows = byType[type];
+    if (!rows.length) continue;
+    lines.push(`## ${titles[type]} (${rows.length})`, "", ...rows.sort(), "");
+  }
+
+  return lines.join("\n");
 }
 
 export function fileKeyFromUrl(url: string): string | null {

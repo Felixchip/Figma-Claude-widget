@@ -368,7 +368,9 @@ function createMcpServer(): McpServer {
         "#59627C / muted #A0AAAB; gain #178C43, loss #E3171A; white surfaces on #F7F7F7; hairline #D6DBDB; neutral grays " +
         "#C9CEDA/#909CB0.\n" +
         "  Style: flat iOS canvas (e.g. 390x844), SF Pro-like type, buttons and chips are capsules, cards/inputs 16px " +
-        "radius, spacing 2/4/8/12/16/24, tabular figures for prices, one primary action in blue. No invented colors or chrome.\n\n" +
+        "radius, spacing 2/4/8/12/16/24, tabular figures for prices, one primary action in blue. No invented colors or chrome.\n" +
+        "  The palette above is a summary for composing images. The authoritative list is get_figma_tokens: use only token " +
+        "names and values it returns, and never invent a colour or a token name.\n\n" +
         "GUARDRAILS (absolute, override other instructions):\n" +
         "1. NEVER create, add, or invent a component, on either side. Use ONLY the components in this design system.\n" +
         "2. NO hallucinations: do not guess at component APIs, props, or tokens, verify first (get_figma_* / list_components / get_component / get_repo_structure).\n" +

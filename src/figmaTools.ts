@@ -99,8 +99,7 @@ export async function getFigmaTokens(store: SpecStore): Promise<ToolResult> {
   if (!s.token || !s.fileKey) return { text: "Figma is not connected or no library file selected.", isError: true };
   try {
     const vars = await figmaFileVariables(s.token, s.fileKey);
-    const byType = extractVariables(vars);
-    return { text: JSON.stringify(byType, null, 2) };
+    return { text: extractVariables(vars) };
   } catch (err) {
     return { text: `Error: ${(err as Error).message}`, isError: true };
   }

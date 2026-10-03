@@ -3,6 +3,17 @@
 `package.json` is the single source of truth for the version. The server and the
 ChatGPT plugin manifests read from it (`npm run sync:versions`).
 
+## 0.5.1
+
+- **Tokens are now usable.** `get_figma_tokens` returned ~215 KB of JSON whose
+  values were unresolved alias references keyed by mode *id* — no actual
+  colours, which is why agents invented them. It now resolves alias chains,
+  names the modes, converts colours to hex (with alpha), collapses values that
+  are the same across modes, and returns a compact list (~215 KB → a few KB)
+  that opens with "these are the ONLY token names and values that exist".
+- A non-negotiable rule now states it directly: use only token names and values
+  `get_figma_tokens` returns, never invent one.
+
 ## 0.5.0
 
 - **Review loop** — a new `submit_output` MCP tool lets an agent send back what

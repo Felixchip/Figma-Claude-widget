@@ -10,7 +10,8 @@ export const RULES_PREAMBLE = `
 2. **In Figma: place instances of the GSA library components.** Never draw a rectangle, frame, shape or text box as a stand-in for a component that exists in the library. If the GSA component exists, instance it.
 3. **For an image: every element must be based on a \`get_component_render\` image.** Fetch the render first, then compose. Never draw a button, chip, input, row, card or icon from scratch — if you have not fetched its image, you do not know what it looks like.
 4. **Follow the System Foundation below** (spacing scale, radius, typography, hierarchy, alignment). It is not optional guidance; it is the design system's grammar.
-5. **If a component or value is not in the system, STOP and ask.** Inventing is not permitted.
+5. **Use only token names that \`get_figma_tokens\` returns**, with the values it gives. Never invent a token name, and never use a colour, spacing or radius value that is not in that list. If you need one that isn't there, ask.
+6. **If a component or value is not in the system, STOP and ask.** Inventing is not permitted.
 
 # Design System Guardrails (MANDATORY)
 

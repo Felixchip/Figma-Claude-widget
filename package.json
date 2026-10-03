@@ -1,6 +1,6 @@
 {
   "name": "gsa-build-kit",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Unified MCP server + web UI: reads Figma product specs and the GitHub components repo so agents build on-brand interfaces.",
   "type": "module",
   "main": "dist/index.js",
