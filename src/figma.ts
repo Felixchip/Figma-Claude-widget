@@ -393,8 +393,8 @@ export function extractVariables(fileVars: any): string {
     byType[type].push(`${v.name} = ${rendered}`);
   }
 
-  const collectionList = Object.values<any>(collections)
-    .map((c) => `${c.name} (${(c.modes ?? []).map((m: any) => m.name).join(", ")})`)
+  const collectionList = [...new Set(Object.values<any>(collections).map((c) => String(c.name)))]
+    .sort((a, b) => a.localeCompare(b))
     .join(" · ");
 
   const lines: string[] = [
